@@ -135,18 +135,16 @@ void OS_delay(uint32_t ticks) {
 }
 
 /* initialization of the semaphore variable */
-void Semaphore_init(semaphore_t *p_semaphore, uint32_t start_value){
+void semaphore_init(semaphore_t *p_semaphore, uint32_t start_value){
 	if (!p_semaphore){
 		__disable_irq();
-		p_semaphore->sem_value = start_value;
 	}
+	p_semaphore->sem_value = start_value;
 
 }
 
 /*  */
 void sem_up(semaphore_t *p_semaphore){
-	//if (!p_semaphore){return;}
-
 	__disable_irq();
 
 	p_semaphore->sem_value++;
@@ -156,8 +154,6 @@ void sem_up(semaphore_t *p_semaphore){
 
 /*  */
 void sem_down(semaphore_t *p_semaphore){
-	//if (!p_semaphore) return;
-
 	__disable_irq();
 
 	while (p_semaphore->sem_value == 0){

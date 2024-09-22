@@ -1,62 +1,74 @@
 #include <stdint.h>
+#include <stdlib.h>
 #include "miros.h"
 
+struct struct_threads {
+    OSThread TCB_thread;
+    uint32_t stack_thread[40];
+};
 
-uint32_t conta0=0, conta1=0, conta2=0;
+const uint8_t produceBuffer_start_value = 25;
+const uint8_t consumeBuffer_start_value = 0;
+const uint8_t delay_to_produce = 50;
+const uint8_t delay_to_consume = 80;
+const uint8_t min_productor_delay = 50;        // delay in ticks
+const uint8_t min_consumer_delay = 50;         // delay in ticks
+const uint8_t max_productor_delay = 150;        // delay in ticks
+const uint8_t max_consumer_delay = 150;         // delay in ticks
+const uint8_t number_of_productors = 2;
+const uint8_t number_of_consumers = 2;
 
-uint32_t stack_blinky1[40];
-OSThread blinky1;
-void main_blinky1() {
+semaphore_t produceBuffer;      // Number of itens that can be produced
+semaphore_t consumeBuffer;      // Number of itens that can be consumed
+
+void productor() {
     while (1) {
-    	conta0++;
-        OS_delay(TICKS_PER_SEC * 3U / 4U);
+        sem_down(&produceBuffer);
+        OS_delay(delay_to_produce);     // Time to produce
+        sem_up(&consumeBuffer);
+        OS_delay(rand()%(max_productor_delay-min_productor_delay)+min_productor_delay);       // Interval between produces
     }
 }
 
-uint32_t stack_blinky2[40];
-OSThread blinky2;
-
-void main_blinky2() {
+void consumer() {
     while (1) {
-    	conta1++;
-        OS_delay(TICKS_PER_SEC / 3U);
+        sem_down(&consumeBuffer);
+        OS_delay(delay_to_consume);     // Time to consume
+        sem_up(&produceBuffer);
+        OS_delay(rand()%(max_consumer_delay-min_consumer_delay)+min_consumer_delay);        // Interval between consumers
     }
 }
-
-uint32_t stack_blinky3[40];
-OSThread blinky3;
-void main_blinky3() {
-    while (1) {
-    	conta2++;
-        OS_delay(TICKS_PER_SEC * 3U / 5U);
-    }
-}
-
-uint32_t stack_idleThread[40];
 
 int main() {
+	uint32_t stack_idleThread[40];
+
+    // start the OS
     OS_init(stack_idleThread, sizeof(stack_idleThread));
 
-    /* start blinky1 thread */
-    OSThread_start(&blinky1,
-                   5U, /* priority */
-                   &main_blinky1,
-                   stack_blinky1, sizeof(stack_blinky1));
+    // start the semaphores
+    semaphore_init(&produceBuffer, produceBuffer_start_value);
+    semaphore_init(&consumeBuffer, consumeBuffer_start_value);
 
-    /* start blinky2 thread */
-    OSThread_start(&blinky2,
-                   2U, /* priority */
-                   &main_blinky2,
-                   stack_blinky2, sizeof(stack_blinky2));
+    // start the structs of productos and consumers
+    struct struct_threads productors_struct[number_of_productors];
+    struct struct_threads consumers_struct[number_of_consumers];
 
-    /* start blinky3 thread */
-    OSThread_start(&blinky3,
-                   1U, /* priority */
-                   &main_blinky3,
-                   stack_blinky3, sizeof(stack_blinky3));
+    // start productors threads
+    for (uint8_t i = 0; i < number_of_productors; i++){
+        OSThread_start(&(productors_struct[i].TCB_thread),
+                   (i+1), /* priority */
+                   &productor,
+                   productors_struct[i].stack_thread, sizeof(productors_struct[i].stack_thread));
+    }
+
+    // start consumers threads
+    for (uint8_t i = 0; i < number_of_consumers; i++){
+        OSThread_start(&(consumers_struct[i].TCB_thread),
+                   (i+number_of_productors+1), /* priority */
+                   &consumer,
+                   consumers_struct[i].stack_thread, sizeof(consumers_struct[i].stack_thread));
+    }
 
     /* transfer control to the RTOS to run the threads */
     OS_run();
-
-    //return 0;
 }

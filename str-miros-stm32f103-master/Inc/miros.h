@@ -69,13 +69,13 @@ void OS_tick(void);
 void OS_onStartup(void);
 
 /* initialization of the semaphore variable */
-void Semaphore_init();
+void semaphore_init(semaphore_t *p_semaphore, uint32_t start_value);
 
 /*  */
-void sem_up();
+void sem_up(semaphore_t *p_semaphore);
 
 /*  */
-void sem_down();
+void sem_down(semaphore_t *p_semaphore);
 
 
 /*  */
