@@ -1,3 +1,8 @@
+/*
+        Student: Kamylo S. Porto
+*/
+
+
 #include <stdint.h>
 #include <stdlib.h>
 #include "miros.h"
