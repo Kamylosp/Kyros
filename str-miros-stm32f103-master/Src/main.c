@@ -67,7 +67,7 @@ int main() {
     // start producers threads
     for (uint8_t i = 0; i < number_of_productors; i++){
         OSThread_start(&(productors_struct[i].TCB_thread),
-                   (i+1), /* priority */
+                   (2*i+1), /* priority */
                    &productor,
                    productors_struct[i].stack_thread, sizeof(productors_struct[i].stack_thread));
     }
@@ -75,7 +75,7 @@ int main() {
     // start consumers threads
     for (uint8_t i = 0; i < number_of_consumers; i++){
         OSThread_start(&(consumers_struct[i].TCB_thread),
-                   (i+number_of_productors+1), /* priority */
+                   (2*i+2), /* priority */
                    &consumer,
                    consumers_struct[i].stack_thread, sizeof(consumers_struct[i].stack_thread));
     }

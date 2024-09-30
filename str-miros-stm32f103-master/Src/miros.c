@@ -157,9 +157,7 @@ void sem_down(semaphore_t *p_semaphore){
 	__disable_irq();
 
 	while (p_semaphore->sem_value == 0){
-		uint8_t delay = 1U;
 		OS_delay(1U);
-		delay++;
 		__disable_irq();
 	}
 
