@@ -1,5 +1,6 @@
 {
     "files.associations": {
-        "miros.h": "c"
+        "miros.h": "c",
+        "random": "cpp"
     }
 }
