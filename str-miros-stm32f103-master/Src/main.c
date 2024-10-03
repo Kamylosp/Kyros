@@ -13,8 +13,8 @@ const uint8_t delay_to_produce = 50;
 const uint8_t delay_to_consume = 80;
 const uint8_t productor_delay = 100;        // delay in ticks
 const uint8_t consumer_delay = 100;         // delay in ticks
-const uint8_t number_of_productors = 2;
-const uint8_t number_of_consumers = 2;
+const uint8_t number_of_productors = 1;
+const uint8_t number_of_consumers = 1;
 uint8_t buffer;     // Number of items in buffer/storage
 
 semaphore_t produceBuffer;      // Number of items that can be produced
