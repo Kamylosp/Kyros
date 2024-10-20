@@ -42,6 +42,10 @@ OSThread * volatile OS_next; /* pointer to the next thread to run */
 OSThread *OS_thread[32 + 1]; /* array of threads started so far */
 uint32_t OS_readySet; /* bitmask of threads that are ready to run */
 uint32_t OS_delayedSet; /* bitmask of threads that are delayed */
+uint8_t OS_thread_running_index = 0;
+
+
+uint32_t teste;
 
 #define LOG2(x) (32U - __builtin_clz(x))
 
@@ -58,19 +62,31 @@ void OS_init(void *stkSto, uint32_t stkSize) {
 
     /* start idleThread thread */
     OSThread_start(&idleThread,
-                   0U, /* idle thread priority */
+                   0U, /* idle thread index */
                    &main_idleThread,
                    stkSto, stkSize);
 }
 
+/*
+void OS_Calculate_next_periodic_task (void){
+
+}
+
+*/
+
+
 void OS_sched(void) {
     /* choose the next thread to execute... */
+
+	teste = OS_readySet + OS_delayedSet;
+
     OSThread *next;
     if (OS_readySet == 0U) { /* idle condition? */
         next = OS_thread[0]; /* the idle thread */
     }
     else {
         next = OS_thread[LOG2(OS_readySet)];
+
         Q_ASSERT(next != (OSThread *)0);
     }
 
@@ -109,13 +125,34 @@ void OS_tick(void) {
         uint32_t bit;
         Q_ASSERT((t != (OSThread *)0) && (t->timeout != 0U));
 
-        bit = (1U << (t->prio - 1U));
+        bit = (1U << (t->index - 1U));
         --t->timeout;
         if (t->timeout == 0U) {
             OS_readySet   |= bit;  /* insert to set */
             OS_delayedSet &= ~bit; /* remove from set */
         }
         workingSet &= ~bit; /* remove from working set */
+    }
+
+    /* Update the dinamics parameters os periodics tasks */
+    uint32_t tasks = OS_delayedSet + OS_readySet;
+    while (tasks != 0U){
+        OSThread *t = OS_thread[LOG2(tasks)];
+        
+        if (t->index == OS_thread_running_index){
+            t->task_parameters.cost_dinamic--;
+        }
+
+        t->task_parameters.deadline_dinamic--;
+        t->task_parameters.period_dinamic--;
+
+        if (t->task_parameters.period_dinamic == 0){
+            t->task_parameters.cost_dinamic = t->task_parameters.cost_absolute;
+            t->task_parameters.deadline_dinamic = t->task_parameters.deadline_absolute;
+            t->task_parameters.period_dinamic = t->task_parameters.period_absolute;
+        }
+
+        tasks &= ~(1U << (t->index - 1U)); /* remove from task */
     }
 }
 
@@ -127,7 +164,7 @@ void OS_delay(uint32_t ticks) {
     Q_REQUIRE(OS_curr != OS_thread[0]);
 
     OS_curr->timeout = ticks;
-    bit = (1U << (OS_curr->prio - 1U));
+    bit = (1U << (OS_curr->index - 1U));
     OS_readySet &= ~bit;
     OS_delayedSet |= bit;
     OS_sched();
@@ -140,7 +177,6 @@ void semaphore_init(semaphore_t *p_semaphore, uint32_t start_value){
 		__disable_irq();
 	}
 	p_semaphore->sem_value = start_value;
-
 }
 
 /*  */
@@ -170,20 +206,6 @@ void error_indicator_blink() {
 	__disable_irq();
 
 	while (1){}
-
-	/*
-
-	// Initialize the on-board LED (pin C13)
-	gpio_init(GPIOC);
-	gpio_configure(GPIOC, 13, GPIO_CR_MODE_OUTPUT_50M, GPIO_CR_CNF_OUTPUT_PUSH_PULL);
-
-	// And blink it forever
-	bool led_state = false;
-	while (true) {
-		gpio_write(GPIOC, 13, led_state = !led_state);
-		for (volatile int i = 0; i < 5e5; i++) {}
-	}
-	*/
 }
 
 
@@ -191,7 +213,7 @@ void error_indicator_blink() {
 
 void OSThread_start(
     OSThread *me,
-    uint8_t prio, /* thread priority */
+    uint8_t index, /* thread index */
     OSThreadHandler threadHandler,
     void *stkSto, uint32_t stkSize)
 {
@@ -204,8 +226,8 @@ void OSThread_start(
     /* priority must be in ragne
     * and the priority level must be unused
     */
-    Q_REQUIRE((prio < Q_DIM(OS_thread))
-              && (OS_thread[prio] == (OSThread *)0));
+    Q_REQUIRE((index < Q_DIM(OS_thread))
+              && (OS_thread[index] == (OSThread *)0));
 
     *(--sp) = (1U << 24);  /* xPSR */
     *(--sp) = (uint32_t)threadHandler; /* PC */
@@ -237,11 +259,11 @@ void OSThread_start(
     }
 
     /* register the thread with the OS */
-    OS_thread[prio] = me;
-    me->prio = prio;
+    OS_thread[index] = me;
+    me->index = index;
     /* make the thread ready to run */
-    if (prio > 0U) {
-        OS_readySet |= (1U << (prio - 1U));
+    if (index > 0U) {
+        OS_readySet |= (1U << (index - 1U));
     }
 }
 

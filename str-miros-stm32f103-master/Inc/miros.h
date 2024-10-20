@@ -32,11 +32,23 @@
 #ifndef MIROS_H
 #define MIROS_H
 
+
+typedef struct {
+    uint32_t cost_absolute;
+    uint32_t cost_dinamic;
+    uint32_t deadline_absolute;
+    uint32_t deadline_dinamic;
+    uint32_t period_absolute;
+    uint32_t period_dinamic;
+} OSThread_periodics_task_parameters;
+
+
 /* Thread Control Block (TCB) */
 typedef struct {
     void *sp; /* stack pointer */
     uint32_t timeout; /* timeout delay down-counter */
-    uint8_t prio; /* thread priority */
+    uint8_t index; /* thread index */
+    OSThread_periodics_task_parameters task_parameters;
     /* ... other attributes associated with a thread */
 } OSThread;
 

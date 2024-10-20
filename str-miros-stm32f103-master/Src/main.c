@@ -14,7 +14,7 @@ const uint8_t delay_to_consume = 80;
 const uint8_t productor_delay = 100;        // delay in ticks
 const uint8_t consumer_delay = 100;         // delay in ticks
 const uint8_t number_of_productors = 1;
-const uint8_t number_of_consumers = 1;
+const uint8_t number_of_consumers = 2;
 uint8_t buffer;     // Number of items in buffer/storage
 
 semaphore_t produceBuffer;      // Number of items that can be produced
@@ -49,6 +49,9 @@ void consumer() {
     }
 }
 
+
+struct struct_threads *struct_teste;
+
 int main() {
 	uint32_t stack_idleThread[40];
 
@@ -60,9 +63,30 @@ int main() {
     semaphore_init(&consumeBuffer, consumeBuffer_start_value);
     semaphore_init(&mutexBuffer, 1);
 
-    // start the structs of producers and consumers
-    struct struct_threads productors_struct[number_of_productors];
-    struct struct_threads consumers_struct[number_of_consumers];
+	// start the structs of producers and consumers
+	struct struct_threads productors_struct[number_of_productors];
+	struct struct_threads consumers_struct[number_of_consumers];
+
+	struct_teste = &productors_struct[0];
+
+
+    for (int i = 0; i < number_of_productors; i++){
+        productors_struct[i].TCB_thread.task_parameters.cost_absolute = 80;
+        productors_struct[i].TCB_thread.task_parameters.cost_dinamic = 80;
+        productors_struct[i].TCB_thread.task_parameters.deadline_absolute = 150;
+        productors_struct[i].TCB_thread.task_parameters.deadline_dinamic = 150;
+        productors_struct[i].TCB_thread.task_parameters.period_absolute = 200;
+        productors_struct[i].TCB_thread.task_parameters.period_dinamic = 200;
+    }
+
+    for (int i = 0; i < number_of_consumers; i++){
+        consumers_struct[i].TCB_thread.task_parameters.cost_absolute = 80;
+        consumers_struct[i].TCB_thread.task_parameters.cost_dinamic = 80;
+        consumers_struct[i].TCB_thread.task_parameters.deadline_absolute = 150;
+        consumers_struct[i].TCB_thread.task_parameters.deadline_dinamic = 150;
+        consumers_struct[i].TCB_thread.task_parameters.period_absolute = 200;
+        consumers_struct[i].TCB_thread.task_parameters.period_dinamic = 200;
+    }
 
     // start producers threads
     for (uint8_t i = 0; i < number_of_productors; i++){
