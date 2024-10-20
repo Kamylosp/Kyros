@@ -72,6 +72,9 @@ int main() {
                    productors_struct[i].stack_thread, sizeof(productors_struct[i].stack_thread));
     }
 
+
+
+
     // start consumers threads
     for (uint8_t i = 0; i < number_of_consumers; i++){
         OSThread_start(&(consumers_struct[i].TCB_thread),
