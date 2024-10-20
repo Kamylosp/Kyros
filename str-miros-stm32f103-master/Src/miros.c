@@ -45,8 +45,6 @@ uint32_t OS_delayedSet; /* bitmask of threads that are delayed */
 uint8_t OS_thread_running_index = 0;
 
 
-uint32_t teste;
-
 #define LOG2(x) (32U - __builtin_clz(x))
 
 OSThread idleThread;
@@ -67,25 +65,53 @@ void OS_init(void *stkSto, uint32_t stkSize) {
                    stkSto, stkSize);
 }
 
-/*
-void OS_Calculate_next_periodic_task (void){
 
+void OS_calculate_next_periodic_task (void){
+
+    uint8_t index_lowest_deadline = 0U;
+    uint32_t lowest_deadline;
+
+    uint32_t tasks = OS_delayedSet + OS_readySet;
+
+    while (tasks != 0U){
+        OSThread *t = OS_thread[LOG2(tasks)];
+
+        if (t->task_parameters.cost_dinamic > 0){   // Verify if the task have been not all executed
+            if (index_lowest_deadline == 0U){           // If It is the first task verifing
+                index_lowest_deadline = t->index;
+                lowest_deadline = t->task_parameters.deadline_dinamic;
+
+            } else {
+                if (t->task_parameters.deadline_dinamic < lowest_deadline){     // If the task have a lowest deadline
+                    index_lowest_deadline = t->index;
+                    lowest_deadline = t->task_parameters.deadline_dinamic;
+
+                } else if (t->task_parameters.deadline_dinamic == lowest_deadline){
+                    if (t->index == OS_thread_running_index){   // If the task is the current task 
+                        index_lowest_deadline = t->index;
+                        lowest_deadline = t->task_parameters.deadline_dinamic;
+                    }
+                }
+            }
+        }
+        tasks &= ~(1U << (t->index - 1U)); /* remove from task */
+    }
+
+    OS_thread_running_index = index_lowest_deadline;
 }
 
-*/
+
 
 
 void OS_sched(void) {
     /* choose the next thread to execute... */
 
-	teste = OS_readySet + OS_delayedSet;
-
     OSThread *next;
-    if (OS_readySet == 0U) { /* idle condition? */
+    if (OS_thread_running_index == 0U) { /* idle condition? */
         next = OS_thread[0]; /* the idle thread */
     }
     else {
-        next = OS_thread[LOG2(OS_readySet)];
+        next = OS_thread[OS_thread_running_index];
 
         Q_ASSERT(next != (OSThread *)0);
     }
@@ -111,6 +137,7 @@ void OS_run(void) {
     OS_onStartup();
 
     __disable_irq();
+    OS_calculate_next_periodic_task();
     OS_sched();
     __enable_irq();
 

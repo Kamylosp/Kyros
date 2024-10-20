@@ -1,6 +1,7 @@
 {
     "files.associations": {
         "miros.h": "c",
-        "random": "cpp"
+        "random": "cpp",
+        "stm32f1xx_it.h": "c"
     }
 }

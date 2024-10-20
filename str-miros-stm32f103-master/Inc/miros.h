@@ -60,6 +60,8 @@ typedef struct {
 
 typedef void (*OSThreadHandler)();
 
+void OS_calculate_next_periodic_task (void);
+
 void OS_init(void *stkSto, uint32_t stkSize);
 
 /* callback to handle the idle condition */
