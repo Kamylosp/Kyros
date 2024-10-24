@@ -1,22 +1,12 @@
 Aluno: Kamylo Serafim Porto
 Matrícula: 22101934
 
--------------------------------------------------
-  PROJETO 1 - IMPLEMENTAÇÃO PRODUTOR/CONSUMIDOR  
--------------------------------------------------
+---------------------------------------------------
+  PROJETO 2 - IMPLEMENTAÇÃO ESCALONADOR PERIÓDICO 
+---------------------------------------------------
 
-Implementação do semáforo:
-- A implementação foi feita de modo que, quando 
- uma thread tenta subtrair de uma variável de 
- semáforo que está zerada, essa thread recebe um 
- delay de 1 tick, e ocorre um escalonamento para 
- outra tarefa.
-- Dessa forma, a thread fica bloqueada durante 
- aquele período de tick
-- A função para inicializar um semáforo é 
- denominada semaphore_init(), e as funções para 
- somar e subtrair do buffer do semáforo são sem_up()
- e sem_down().
+- Para a implementação foi criado uma struct para cada tarefa, nela 
+ são armazenadas informações sobre custo
 
 Implementação do produtor/consumidor:
 - Foi decidido criar variáveis constantes para 
