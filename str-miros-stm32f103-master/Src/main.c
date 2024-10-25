@@ -43,22 +43,22 @@ int main() {
 
     struct_task1.TCB_thread.task_parameters.cost_absolute = 50;
     struct_task1.TCB_thread.task_parameters.cost_dinamic = 50;
-    struct_task1.TCB_thread.task_parameters.deadline_absolute = 150;
-    struct_task1.TCB_thread.task_parameters.deadline_dinamic = 150;
+    struct_task1.TCB_thread.task_parameters.deadline_absolute = 100;
+    struct_task1.TCB_thread.task_parameters.deadline_dinamic = 100;
     struct_task1.TCB_thread.task_parameters.period_absolute = 150;
     struct_task1.TCB_thread.task_parameters.period_dinamic = 150;
 
     struct_task2.TCB_thread.task_parameters.cost_absolute = 50;
     struct_task2.TCB_thread.task_parameters.cost_dinamic = 50;
-    struct_task2.TCB_thread.task_parameters.deadline_absolute = 200;
-    struct_task2.TCB_thread.task_parameters.deadline_dinamic = 200;
+    struct_task2.TCB_thread.task_parameters.deadline_absolute = 150;
+    struct_task2.TCB_thread.task_parameters.deadline_dinamic = 150;
     struct_task2.TCB_thread.task_parameters.period_absolute = 200;
     struct_task2.TCB_thread.task_parameters.period_dinamic = 200;
 
     struct_task3.TCB_thread.task_parameters.cost_absolute = 50;
     struct_task3.TCB_thread.task_parameters.cost_dinamic = 50;
-    struct_task3.TCB_thread.task_parameters.deadline_absolute = 300;
-    struct_task3.TCB_thread.task_parameters.deadline_dinamic = 300;
+    struct_task3.TCB_thread.task_parameters.deadline_absolute = 250;
+    struct_task3.TCB_thread.task_parameters.deadline_dinamic = 250;
     struct_task3.TCB_thread.task_parameters.period_absolute = 300;
     struct_task3.TCB_thread.task_parameters.period_dinamic = 300;
 

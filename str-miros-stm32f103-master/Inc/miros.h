@@ -54,6 +54,7 @@ typedef struct {
 
 typedef struct {
 	uint32_t sem_value;		//
+    uint32_t max_value;
 } semaphore_t;
 
 #define TICKS_PER_SEC 100U

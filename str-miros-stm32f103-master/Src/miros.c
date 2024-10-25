@@ -210,7 +210,8 @@ void semaphore_init(semaphore_t *p_semaphore, uint32_t start_value){
 void sem_up(semaphore_t *p_semaphore){
 	__disable_irq();
 
-	p_semaphore->sem_value++;
+    if (p_semaphore->sem_value < p_semaphore->max_value)
+	    p_semaphore->sem_value++;
 
 	__enable_irq();
 }

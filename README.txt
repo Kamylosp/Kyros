@@ -5,19 +5,33 @@ Matrícula: 22101934
   PROJETO 2 - IMPLEMENTAÇÃO ESCALONADOR PERIÓDICO 
 ---------------------------------------------------
 
-- Para a implementação foi criado uma struct para cada tarefa, nela 
- são armazenadas informações sobre custo
+- O escalonamento periódico implementado foi EDF.	
 
-Implementação do produtor/consumidor:
-- Foi decidido criar variáveis constantes para 
- facilitar a alteração de parâmetros, como o número 
- de produtores e consumidores, intervalos de espera 
- para produzir/consumir e o tempo entre essas ações.
-- Além disso, foi criada uma variável chamada buffer, 
- que armazena a quantidade de "itens" que o "armazém" 
- possui.
-- Outra informação importante é que os produtores 
- possuem prioridades ímpares (1, 3, 5, ...) e os 
- consumidores possuem prioridades pares maiores que 0
- (2, 4, 6, ...), fazendo com que o escalonador sempre 
- alterne entre uma thread produtora e uma consumidora.
+- Foi criado uma struct para cada tarefa periódica, 
+ nela são armazenadas informações sobre custo, 
+ deadline e período (absolutos e dinâmicos). Essa 
+ struct foi implementada na Thread Control Block, 
+ pois, nesta implementação, cada thread é uma 
+ tarefa periódica.
+
+- Além disso, as informações absolutas são aquelas 
+ que não são alteradas durante o escalonamento das 
+ tarefas, são intrínsecas a cada tarefa. Já as 
+ dinâmicas são alteradas a cada tick.
+
+- A função OS_calculate_next_periodic_task() tem 
+ como objetivo calcular a tarefa, que ainda não foi 
+ concluída, com o deadline mais próximo. Ela é 
+ chamada sempre antes de uma tarefa ser escalonada 
+ pela OS_sched(), ou seja, ela é chamada na OS_run() 
+ (por conta do primeiro escalonamento) e pela 
+ SysTick_Handler() (quando uma tarefa deve ser 
+ escalonada).
+
+- Além dessas duas funções, foram realizadas alterações
+ na OS_tick() e na OS_sched(). Na OS_tick foi adicionado
+ o compromisso de atualizar as variáveis dinâmicas das 
+ tarefas. Já na OS_sched(), as tarefas passaram a ser 
+ escalonadas pelo índice da tarefa com deadline mais 
+ próximo, conforme calculado e definido na 
+ OS_calculate_next_periodic_task().
