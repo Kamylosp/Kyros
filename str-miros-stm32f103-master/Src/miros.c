@@ -40,10 +40,11 @@ OSThread * volatile OS_curr; /* pointer to the current thread */
 OSThread * volatile OS_next; /* pointer to the next thread to run */
 
 OSThread *OS_thread[32 + 1]; /* array of threads started so far */
-uint32_t OS_readySet; /* bitmask of threads that are ready to run */
-uint32_t OS_delayedSet; /* bitmask of threads that are delayed */
+uint32_t OS_readySet = 0; /* bitmask of threads that are ready to run */
+uint32_t OS_delayedSet = 0; /* bitmask of threads that are delayed */
+uint32_t OS_waiting_next_periodSet = 0; /* bitmask of threads that are waiting next period */
 uint8_t OS_thread_running_index = 0;
-
+uint8_t cont_tasks_index = -1;
 
 #define LOG2(x) (32U - __builtin_clz(x))
 
@@ -60,37 +61,33 @@ void OS_init(void *stkSto, uint32_t stkSize) {
 
     /* start idleThread thread */
     OSThread_start(&idleThread,
-                   0U, /* idle thread index */
                    &main_idleThread,
                    stkSto, stkSize);
 }
 
 
 void OS_calculate_next_periodic_task (void){
-
     uint8_t index_lowest_deadline = 0U;
     uint32_t lowest_deadline;
 
-    uint32_t tasks = OS_delayedSet + OS_readySet;
+    uint32_t tasks = OS_readySet;
 
     while (tasks != 0U){
         OSThread *t = OS_thread[LOG2(tasks)];
 
-        if (t->task_parameters.cost_dinamic > 0){   // Verify if the task have been not all executed
-            if (index_lowest_deadline == 0U){           // If It is the first task verifing
+        if (index_lowest_deadline == 0U){
+            index_lowest_deadline = t->index;
+            lowest_deadline = t->task_parameters.deadline_dinamic;
+
+        } else {
+            if (t->task_parameters.deadline_dinamic < lowest_deadline){     // If the task have a lowest deadline
                 index_lowest_deadline = t->index;
                 lowest_deadline = t->task_parameters.deadline_dinamic;
 
-            } else {
-                if (t->task_parameters.deadline_dinamic < lowest_deadline){     // If the task have a lowest deadline
+            } else if (t->task_parameters.deadline_dinamic == lowest_deadline){
+                if (t->index == OS_thread_running_index){   // If the task is the current task
                     index_lowest_deadline = t->index;
                     lowest_deadline = t->task_parameters.deadline_dinamic;
-
-                } else if (t->task_parameters.deadline_dinamic == lowest_deadline){
-                    if (t->index == OS_thread_running_index){   // If the task is the current task 
-                        index_lowest_deadline = t->index;
-                        lowest_deadline = t->task_parameters.deadline_dinamic;
-                    }
                 }
             }
         }
@@ -100,7 +97,17 @@ void OS_calculate_next_periodic_task (void){
     OS_thread_running_index = index_lowest_deadline;
 }
 
+void OS_wait_next_period(){
+    __disable_irq();
+    
+    uint8_t bit = (1U << (OS_curr->index - 1U));
+    OS_readySet   &= ~bit;  /* insert to set */
+    OS_waiting_next_periodSet |= bit; /* remove from set */
 
+    OS_calculate_next_periodic_task();
+    OS_sched();
+    __enable_irq();
+}
 
 
 void OS_sched(void) {
@@ -162,24 +169,21 @@ void OS_tick(void) {
     }
 
     /* Update the dinamics parameters os periodics tasks */
-    uint32_t tasks = OS_delayedSet + OS_readySet;
-    while (tasks != 0U){
-        OSThread *t = OS_thread[LOG2(tasks)];
-        
-        if (t->index == OS_thread_running_index){
-            t->task_parameters.cost_dinamic--;
-        }
+    for (int i = 1; i <= cont_tasks_index; i++){
+        OSThread *t = OS_thread[i];
 
         t->task_parameters.deadline_dinamic--;
         t->task_parameters.period_dinamic--;
 
         if (t->task_parameters.period_dinamic == 0){
-            t->task_parameters.cost_dinamic = t->task_parameters.cost_absolute;
+            uint32_t bit = (1U << (t->index - 1U));
+
+            OS_readySet   |= bit;  /* insert to set */
+            OS_waiting_next_periodSet &= ~bit; /* remove from set */
+
             t->task_parameters.deadline_dinamic = t->task_parameters.deadline_absolute;
             t->task_parameters.period_dinamic = t->task_parameters.period_absolute;
         }
-
-        tasks &= ~(1U << (t->index - 1U)); /* remove from task */
     }
 }
 
@@ -216,7 +220,6 @@ void sem_up(semaphore_t *p_semaphore){
 	__enable_irq();
 }
 
-/*  */
 void sem_down(semaphore_t *p_semaphore){
 	__disable_irq();
 
@@ -228,20 +231,14 @@ void sem_down(semaphore_t *p_semaphore){
 	p_semaphore->sem_value--;
 }
 
-
-
 void error_indicator_blink() {
 	__disable_irq();
 
 	while (1){}
 }
 
-
-
-
 void OSThread_start(
-    OSThread *me,
-    uint8_t index, /* thread index */
+    OSThread *me, /* thread index */
     OSThreadHandler threadHandler,
     void *stkSto, uint32_t stkSize)
 {
@@ -251,11 +248,15 @@ void OSThread_start(
     uint32_t *sp = (uint32_t *)((((uint32_t)stkSto + stkSize) / 8) * 8);
     uint32_t *stk_limit;
 
+    uint8_t index = cont_tasks_index+1;
+
     /* priority must be in ragne
     * and the priority level must be unused
     */
     Q_REQUIRE((index < Q_DIM(OS_thread))
               && (OS_thread[index] == (OSThread *)0));
+
+    cont_tasks_index++;
 
     *(--sp) = (1U << 24);  /* xPSR */
     *(--sp) = (uint32_t)threadHandler; /* PC */

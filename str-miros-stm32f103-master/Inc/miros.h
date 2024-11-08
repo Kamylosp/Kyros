@@ -34,8 +34,6 @@
 
 
 typedef struct {
-    uint32_t cost_absolute;
-    uint32_t cost_dinamic;
     uint32_t deadline_absolute;
     uint32_t deadline_dinamic;
     uint32_t period_absolute;
@@ -62,6 +60,8 @@ typedef struct {
 typedef void (*OSThreadHandler)();
 
 void OS_calculate_next_periodic_task (void);
+
+void OS_wait_next_period(void);
 
 void OS_init(void *stkSto, uint32_t stkSize);
 
@@ -100,7 +100,6 @@ void error_indicator_blink();
 
 void OSThread_start(
     OSThread *me,
-    uint8_t prio, /* thread priority */
     OSThreadHandler threadHandler,
     void *stkSto, uint32_t stkSize);
 
