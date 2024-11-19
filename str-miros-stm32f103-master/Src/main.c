@@ -3,17 +3,10 @@
 #include "miros.h"
 #include "stm32f1xx_hal.h"
 
-
-struct struct_threads {
-    OSThread TCB_thread;
-    uint32_t stack_thread[40];
-};
-
 uint32_t cont_task_1 = 0;
 uint32_t cont_task_2 = 0;
 uint32_t cont_task_3 = 0;
 uint8_t actual_task = 0;
-
 
 void task1(){
     while(1){
@@ -51,9 +44,9 @@ void task3(){
     }
 }
 
-struct struct_threads struct_task1;
-struct struct_threads struct_task2;
-struct struct_threads struct_task3;
+struct_periodic_task struct_task1;
+struct_periodic_task struct_task2;
+struct_periodic_task struct_task3;
 
 int main() {
 	uint32_t stack_idleThread[40];

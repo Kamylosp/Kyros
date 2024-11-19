@@ -55,6 +55,12 @@ typedef struct {
     uint32_t max_value;
 } semaphore_t;
 
+typedef struct {
+    OSThread TCB_thread;
+    uint32_t stack_thread[40];
+} struct_periodic_task;
+
+
 #define TICKS_PER_SEC 100U
 
 typedef void (*OSThreadHandler)();
