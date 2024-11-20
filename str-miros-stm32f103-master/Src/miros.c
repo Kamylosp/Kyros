@@ -93,9 +93,10 @@ void OS_finished_aperiodic_task(void){
             OS_aperiodic_tasks[i-1]->prio = i-1;
         }
     }
-    OS_aperiodic_tasks[number_aperiodic_tasks] = 0;
 
     number_aperiodic_tasks--;
+
+    OS_aperiodic_tasks[number_aperiodic_tasks] = 0;
 
     OS_calculate_next_periodic_task();
     OS_sched();

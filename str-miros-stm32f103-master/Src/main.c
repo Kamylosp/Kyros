@@ -22,14 +22,13 @@ uint32_t aux_tick = 0;
 
 void task1(){
     while(1){
-
-        uint32_t start_tick = HAL_GetTick();
+    	uint32_t start = HAL_GetTick();
 
         cont_task_1 = 0;
-        while(cont_task_1 < 0x5FFFF)
+        while(cont_task_1 < 0xFFFF)
         	cont_task_1++;
 
-        aux_tick = HAL_GetTick() - start_tick;
+        aux_tick = HAL_GetTick() - start;
 
         OS_wait_next_period();
     }
@@ -61,7 +60,7 @@ void task3(){
 void aperiodic_task_1(){
 
 	cont_aperiodic_task_1 = 0;
-	while(cont_aperiodic_task_1 < 0x3FFFF)
+	while(cont_aperiodic_task_1 < 0x6FFFF)
 				cont_aperiodic_task_1++;
 
 	OSAperiodic_task_start(&struct_aperiodic_task_2.TCB_thread,
@@ -69,7 +68,7 @@ void aperiodic_task_1(){
 							struct_aperiodic_task_2.stack_thread,
 							sizeof(struct_aperiodic_task_2.stack_thread));
 
-	while(cont_aperiodic_task_1 < 0x6FFFF)
+	while(cont_aperiodic_task_1 < 0x1FFFFF)
 					cont_aperiodic_task_1++;
 
 	OS_finished_aperiodic_task();
@@ -78,7 +77,7 @@ void aperiodic_task_1(){
 void aperiodic_task_2(){
 
 	cont_aperiodic_task_2 = 0;
-	while(cont_aperiodic_task_2 < 0x5FFFF)
+	while(cont_aperiodic_task_2 < 0x1FFFFF)
 		cont_aperiodic_task_2++;
 
 	OS_finished_aperiodic_task();
@@ -91,21 +90,20 @@ int main() {
     // start the OS
     OS_init(stack_idleThread, sizeof(stack_idleThread));
 
+    parameters_periodic_task_1.deadline_absolute = 60;
+    parameters_periodic_task_1.deadline_dinamic = 60;
+    parameters_periodic_task_1.period_absolute = 60;
+    parameters_periodic_task_1.period_dinamic = 60;
 
-    parameters_periodic_task_1.deadline_absolute = 500;
-    parameters_periodic_task_1.deadline_dinamic = 500;
-    parameters_periodic_task_1.period_absolute = 500;
-    parameters_periodic_task_1.period_dinamic = 500;
+    parameters_periodic_task_2.deadline_absolute = 120;
+    parameters_periodic_task_2.deadline_dinamic = 120;
+    parameters_periodic_task_2.period_absolute = 120;
+    parameters_periodic_task_2.period_dinamic = 120;
 
-    parameters_periodic_task_2.deadline_absolute = 100;
-    parameters_periodic_task_2.deadline_dinamic = 100;
-    parameters_periodic_task_2.period_absolute = 100;
-    parameters_periodic_task_2.period_dinamic = 100;
-
-    parameters_periodic_task_3.deadline_absolute = 200;
-    parameters_periodic_task_3.deadline_dinamic = 200;
-    parameters_periodic_task_3.period_absolute = 200;
-    parameters_periodic_task_3.period_dinamic = 200;
+    parameters_periodic_task_3.deadline_absolute = 250;
+    parameters_periodic_task_3.deadline_dinamic = 250;
+    parameters_periodic_task_3.period_absolute = 250;
+    parameters_periodic_task_3.period_dinamic = 250;
 
     struct_task1.TCB_thread.task_parameters = &parameters_periodic_task_1;
     struct_task2.TCB_thread.task_parameters = &parameters_periodic_task_2;
@@ -115,7 +113,8 @@ int main() {
                     &task1,
                     struct_task1.stack_thread,
                     sizeof(struct_task1.stack_thread));
-    
+
+
     OSPeriodic_task_start(&struct_task2.TCB_thread, 
                     &task2,
                     struct_task2.stack_thread,
@@ -130,6 +129,7 @@ int main() {
     						&aperiodic_task_1,
 							struct_aperiodic_task_1.stack_thread,
 							sizeof(struct_aperiodic_task_1.stack_thread));
+
     //MX_GPIO_Init();
 
     OS_run();
