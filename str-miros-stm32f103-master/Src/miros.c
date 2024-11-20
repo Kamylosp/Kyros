@@ -121,6 +121,7 @@ void OS_run(void) {
     OS_sched();
     __enable_irq();
 
+
     /* the following code should never execute */
     Q_ERROR();
 }

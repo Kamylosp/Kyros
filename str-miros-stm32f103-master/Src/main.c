@@ -1,12 +1,15 @@
-#include <stdint.h>
-#include <stdlib.h>
-#include "miros.h"
-#include "stm32f1xx_hal.h"
+#include "main.h"
+#include "config_gpio.h"
 
 uint32_t cont_task_1 = 0;
 uint32_t cont_task_2 = 0;
 uint32_t cont_task_3 = 0;
+uint32_t cont_aperiodic_task_1 = 0;
 uint8_t actual_task = 0;
+
+uint32_t ky = 0;
+
+uint8_t qtd_aperiodic_tasks=0;
 
 void task1(){
     while(1){
@@ -41,6 +44,18 @@ void task3(){
                 	cont_task_3++;
 
         OS_wait_next_period();
+    }
+}
+
+void aperiodic_task_1(){
+    while(1){
+        actual_task = 11;
+
+        cont_aperiodic_task_1 = 0;
+        while(cont_aperiodic_task_1 < 0xFFFFF)
+                	cont_aperiodic_task_1++;
+
+        OS();
     }
 }
 
@@ -86,7 +101,27 @@ int main() {
                     struct_task3.stack_thread,
                     sizeof(struct_task3.stack_thread));            
 
+    MX_GPIO_Init();
 
-    /* transfer control to the RTOS to run the threads */
     OS_run();
+}
+
+
+uint32_t previousMillis = 0;
+
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
+  /* Prevent unused argument(s) compilation warning */
+  //UNUSED(GPIO_Pin);
+
+	uint32_t currentMillis = HAL_GetTick();
+
+	if (GPIO_Pin == GPIO_PIN_0 && (currentMillis - previousMillis) > 1){
+		ky++;
+		previousMillis = currentMillis;
+	}
+
+
+  /* NOTE: This function Should not be modified, when the callback is needed,
+           the HAL_GPIO_EXTI_Callback could be implemented in the user file
+   */
 }
