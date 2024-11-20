@@ -46,7 +46,7 @@ typedef struct {
     void *sp; /* stack pointer */
     uint32_t timeout; /* timeout delay down-counter */
     uint8_t prio; /* thread index */
-    OSThread_periodics_task_parameters task_parameters;
+    OSThread_periodics_task_parameters *task_parameters;
     /* ... other attributes associated with a thread */
 } OSThread;
 
@@ -68,6 +68,8 @@ typedef void (*OSThreadHandler)();
 void OS_calculate_next_periodic_task (void);
 
 void OS_wait_next_period(void);
+
+void OS_finished_aperiodic_task(void);
 
 void OS_init(void *stkSto, uint32_t stkSize);
 
@@ -102,9 +104,11 @@ void sem_down(semaphore_t *p_semaphore);
 /*  */
 void error_indicator_blink();
 
+void OSAperiodic_task_start(OSThread *me,
+    OSThreadHandler threadHandler,
+    void *stkSto, uint32_t stkSize);
 
-
-void OSThread_start(
+void OSPeriodic_task_start(
     OSThread *me,
     OSThreadHandler threadHandler,
     void *stkSto, uint32_t stkSize);

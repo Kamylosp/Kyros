@@ -39,12 +39,14 @@ Q_DEFINE_THIS_FILE
 OSThread * volatile OS_curr; /* pointer to the current thread */
 OSThread * volatile OS_next; /* pointer to the next thread to run */
 
-OSThread *OS_thread[32 + 1]; /* array of threads started so far */
+OSThread *OS_periodic_tasks[32 + 1]; /* array of periodics tasks */
+OSThread *OS_aperiodic_tasks[8]; /* array of aperiodics tasks */
 uint32_t OS_readySet = 0; /* bitmask of threads that are ready to run */
 uint32_t OS_delayedSet = 0; /* bitmask of threads that are delayed */
 uint32_t OS_waiting_next_periodSet = 0; /* bitmask of threads that are waiting next period */
 uint8_t OS_thread_running_index = 0;
-uint8_t cont_tasks = 0;
+uint8_t number_periodic_tasks = 0;
+uint8_t number_aperiodic_tasks = 0;
 
 #define LOG2(x) (32U - __builtin_clz(x))
 
@@ -60,7 +62,7 @@ void OS_init(void *stkSto, uint32_t stkSize) {
     *(uint32_t volatile *)0xE000ED20 |= (0xFFU << 16);
 
     /* start idleThread thread */
-    OSThread_start(&idleThread,
+    OSPeriodic_task_start(&idleThread,
                    &main_idleThread,
                    stkSto, stkSize);
 }
@@ -82,16 +84,39 @@ void OS_wait_next_period(){
     __enable_irq();
 }
 
+void OS_finished_aperiodic_task(void){
+    __disable_irq();
+    
+    if (number_aperiodic_tasks > 1){
+        for (uint8_t i = 1; i <=number_aperiodic_tasks; i++){
+            OS_aperiodic_tasks[i-1] = OS_aperiodic_tasks[i];
+            OS_aperiodic_tasks[i-1]->prio = i-1;
+        }
+    }
+    OS_aperiodic_tasks[number_aperiodic_tasks] = 0;
+
+    number_aperiodic_tasks--;
+
+    OS_calculate_next_periodic_task();
+    OS_sched();
+    __enable_irq();
+}
+
 
 void OS_sched(void) {
-    /* choose the next thread to execute... */
 
     OSThread *next;
-    if (OS_thread_running_index == 0U) { /* idle condition? */
-        next = OS_thread[0]; /* the idle thread */
+    if (OS_thread_running_index == 0U) {
+
+        // If there is aperiodic task to be executable 
+        if (number_aperiodic_tasks){
+            next = OS_aperiodic_tasks[0];
+        } else {
+            next = OS_periodic_tasks[0]; /* the idle thread */
+        }
     }
     else {
-        next = OS_thread[OS_thread_running_index];
+        next = OS_periodic_tasks[OS_thread_running_index];
 
         Q_ASSERT(next != (OSThread *)0);
     }
@@ -129,7 +154,7 @@ void OS_run(void) {
 void OS_tick(void) {
     uint32_t workingSet = OS_delayedSet;
     while (workingSet != 0U) {
-        OSThread *t = OS_thread[LOG2(workingSet)];
+        OSThread *t = OS_periodic_tasks[LOG2(workingSet)];
         uint32_t bit;
         Q_ASSERT((t != (OSThread *)0) && (t->timeout != 0U));
 
@@ -143,20 +168,20 @@ void OS_tick(void) {
     }
 
     /* Update the dinamics parameters os periodics tasks */
-    for (int i = 1; i <= cont_tasks; i++){
-        OSThread *t = OS_thread[i];
+    for (int i = 1; i <= number_periodic_tasks; i++){
+        OSThread *t = OS_periodic_tasks[i];
 
-        t->task_parameters.deadline_dinamic--;
-        t->task_parameters.period_dinamic--;
+        t->task_parameters->deadline_dinamic--;
+        t->task_parameters->period_dinamic--;
 
-        if (t->task_parameters.period_dinamic == 0){
+        if (t->task_parameters->period_dinamic == 0){
             uint32_t bit = (1U << (t->prio - 1U));
 
             OS_readySet   |= bit;  /* insert to set */
             OS_waiting_next_periodSet &= ~bit; /* remove from set */
 
-            t->task_parameters.deadline_dinamic = t->task_parameters.deadline_absolute;
-            t->task_parameters.period_dinamic = t->task_parameters.period_absolute;
+            t->task_parameters->deadline_dinamic = t->task_parameters->deadline_absolute;
+            t->task_parameters->period_dinamic = t->task_parameters->period_absolute;
         }
     }
 }
@@ -166,7 +191,7 @@ void OS_delay(uint32_t ticks) {
     __asm volatile ("cpsid i");
 
     /* never call OS_delay from the idleThread */
-    Q_REQUIRE(OS_curr != OS_thread[0]);
+    Q_REQUIRE(OS_curr != OS_periodic_tasks[0]);
 
     OS_curr->timeout = ticks;
     bit = (1U << (OS_curr->prio - 1U));
@@ -215,10 +240,48 @@ void OSAperiodic_task_start(OSThread *me,
     OSThreadHandler threadHandler,
     void *stkSto, uint32_t stkSize){
 
+    uint32_t *sp = (uint32_t *)((((uint32_t)stkSto + stkSize) / 8) * 8);
+    uint32_t *stk_limit;
 
+    /* number of aperiodic tasks must be lower or equal to array with its parameters */
+    Q_REQUIRE((number_aperiodic_tasks+1 < Q_DIM(OS_periodic_tasks)));
+
+    *(--sp) = (1U << 24);  /* xPSR */
+    *(--sp) = (uint32_t)threadHandler; /* PC */
+    *(--sp) = 0x0000000EU; /* LR  */
+    *(--sp) = 0x0000000CU; /* R12 */
+    *(--sp) = 0x00000003U; /* R3  */
+    *(--sp) = 0x00000002U; /* R2  */
+    *(--sp) = 0x00000001U; /* R1  */
+    *(--sp) = 0x00000000U; /* R0  */
+    /* additionally, fake registers R4-R11 */
+    *(--sp) = 0x0000000BU; /* R11 */
+    *(--sp) = 0x0000000AU; /* R10 */
+    *(--sp) = 0x00000009U; /* R9 */
+    *(--sp) = 0x00000008U; /* R8 */
+    *(--sp) = 0x00000007U; /* R7 */
+    *(--sp) = 0x00000006U; /* R6 */
+    *(--sp) = 0x00000005U; /* R5 */
+    *(--sp) = 0x00000004U; /* R4 */
+
+    /* save the top of the stack in the thread's attibute */
+    me->sp = sp;
+
+    /* round up the bottom of the stack to the 8-byte boundary */
+    stk_limit = (uint32_t *)(((((uint32_t)stkSto - 1U) / 8) + 1U) * 8);
+
+    /* pre-fill the unused part of the stack with 0xDEADBEEF */
+    for (sp = sp - 1U; sp >= stk_limit; --sp) {
+        *sp = 0xDEADBEEFU;
+    }
+
+    OS_aperiodic_tasks[number_aperiodic_tasks] = me;
+    OS_aperiodic_tasks[number_aperiodic_tasks]->prio = number_aperiodic_tasks;
+
+    number_aperiodic_tasks++;
 }
 
-void OSThread_start(
+void OSPeriodic_task_start(
     OSThread *me,
     OSThreadHandler threadHandler,
     void *stkSto, uint32_t stkSize)
@@ -232,12 +295,11 @@ void OSThread_start(
     /* priority must be in ragne
     * and the priority level must be unused
     */
-
-    Q_REQUIRE((cont_tasks+1 < Q_DIM(OS_thread))
-              && (OS_thread[cont_tasks+1] == (OSThread *)0));
+    Q_REQUIRE((number_periodic_tasks+1 < Q_DIM(OS_periodic_tasks))
+              && (OS_periodic_tasks[number_periodic_tasks+1] == (OSThread *)0));
 
     if (threadHandler != &main_idleThread)
-        cont_tasks++;
+        number_periodic_tasks++;
 
     *(--sp) = (1U << 24);  /* xPSR */
     *(--sp) = (uint32_t)threadHandler; /* PC */
@@ -269,34 +331,33 @@ void OSThread_start(
     }
 
     // If is the Idle Thread
-    if (cont_tasks == 0){
-        OS_thread[cont_tasks] = me;
-        OS_thread[cont_tasks]->prio = cont_tasks;
+    if (number_periodic_tasks == 0){
+        OS_periodic_tasks[0] = me;
+        OS_periodic_tasks[0]->prio = number_periodic_tasks;
 
     } else {
-        for (uint8_t i=1; i <= cont_tasks; i++){
+        for (uint8_t i=1; i <= number_periodic_tasks; i++){
             // Se deadline da task_i é menor, a task_me tem prioridade maior  ->  me vai ser salvo
 
             // If is the last loop, the task_me has the higher priority
-            if (i == cont_tasks){
-                OS_thread[i] = me;
-                OS_thread[i]->prio = i;
+            if (i == number_periodic_tasks){
+                OS_periodic_tasks[i] = me;
+                OS_periodic_tasks[i]->prio = i;
 
+            } else if (OS_periodic_tasks[i]->task_parameters->deadline_absolute < me->task_parameters->deadline_absolute ||
             /* If the task_i has a lower deadline, it has a higher priority or
                 its has a lower period with the same deadline than we need to 
                 rearrange the tasks with the correct priority
             */
-            
-            } else if (OS_thread[i]->task_parameters.deadline_absolute < me->task_parameters.deadline_absolute ||
-                    (OS_thread[i]->task_parameters.deadline_absolute == me->task_parameters.deadline_absolute &&
-                        OS_thread[i]->task_parameters.period_absolute < me->task_parameters.period_absolute)){
+                    (OS_periodic_tasks[i]->task_parameters->deadline_absolute == me->task_parameters->deadline_absolute &&
+                        OS_periodic_tasks[i]->task_parameters->period_absolute < me->task_parameters->period_absolute)){
 
-                for (uint8_t j = cont_tasks; j > i; j--){
-                    OS_thread[j] = OS_thread[j-1];
-                    OS_thread[j]->prio = j;
+                for (uint8_t j = number_periodic_tasks; j > i; j--){
+                    OS_periodic_tasks[j] = OS_periodic_tasks[j-1];
+                    OS_periodic_tasks[j]->prio = j;
                 }
-                OS_thread[i] = me;
-                OS_thread[i]->prio = i;
+                OS_periodic_tasks[i] = me;
+                OS_periodic_tasks[i]->prio = i;
                 break;
             }
         }
