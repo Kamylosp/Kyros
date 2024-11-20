@@ -210,6 +210,13 @@ void error_indicator_blink() {
 	while (1){}
 }
 
+void OSAperiodic_task_start(OSThread *me,
+    OSThreadHandler threadHandler,
+    void *stkSto, uint32_t stkSize){
+
+
+}
+
 void OSThread_start(
     OSThread *me,
     OSThreadHandler threadHandler,
@@ -260,37 +267,38 @@ void OSThread_start(
         *sp = 0xDEADBEEFU;
     }
 
-    for (uint8_t i=1; i <= cont_tasks; i++){
-        // Se deadline da task_i é menor, a task_me tem prioridade maior  ->  me vai ser salvo
-
-        // If is the last loop, the task_me has the higher priority
-        if (i == cont_tasks){
-            OS_thread[i] = me;
-            OS_thread[i]->prio = i;
-
-        /* If the task_i has a lower deadline, it has a higher priority or
-            its has a lower period with the same deadline than we need to 
-            rearrange the tasks with the correct priority
-        */
-        
-        } else if (OS_thread[i]->task_parameters.deadline_absolute < me->task_parameters.deadline_absolute ||
-                   (OS_thread[i]->task_parameters.deadline_absolute == me->task_parameters.deadline_absolute &&
-                    OS_thread[i]->task_parameters.period_absolute < me->task_parameters.period_absolute)){
-
-            for (uint8_t j = cont_tasks; j > i; j--){
-                OS_thread[j] = OS_thread[j-1];
-                OS_thread[j]->prio = j;
-            }
-            OS_thread[i] = me;
-            OS_thread[i]->prio = i;
-            break;
-        }
-    }
-
     // If is the Idle Thread
     if (cont_tasks == 0){
         OS_thread[cont_tasks] = me;
         OS_thread[cont_tasks]->prio = cont_tasks;
+
+    } else {
+        for (uint8_t i=1; i <= cont_tasks; i++){
+            // Se deadline da task_i é menor, a task_me tem prioridade maior  ->  me vai ser salvo
+
+            // If is the last loop, the task_me has the higher priority
+            if (i == cont_tasks){
+                OS_thread[i] = me;
+                OS_thread[i]->prio = i;
+
+            /* If the task_i has a lower deadline, it has a higher priority or
+                its has a lower period with the same deadline than we need to 
+                rearrange the tasks with the correct priority
+            */
+            
+            } else if (OS_thread[i]->task_parameters.deadline_absolute < me->task_parameters.deadline_absolute ||
+                    (OS_thread[i]->task_parameters.deadline_absolute == me->task_parameters.deadline_absolute &&
+                        OS_thread[i]->task_parameters.period_absolute < me->task_parameters.period_absolute)){
+
+                for (uint8_t j = cont_tasks; j > i; j--){
+                    OS_thread[j] = OS_thread[j-1];
+                    OS_thread[j]->prio = j;
+                }
+                OS_thread[i] = me;
+                OS_thread[i]->prio = i;
+                break;
+            }
+        }
     }
 
     /* register the thread with the OS */
