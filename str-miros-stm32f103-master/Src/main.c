@@ -83,7 +83,6 @@ void aperiodic_task_2(){
 	OS_finished_aperiodic_task();
 }
 
-
 int main() {
 	uint32_t stack_idleThread[40];
 
@@ -148,9 +147,4 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 		//ky++;
 		previousMillis = currentMillis;
 	}
-
-
-  /* NOTE: This function Should not be modified, when the callback is needed,
-           the HAL_GPIO_EXTI_Callback could be implemented in the user file
-   */
 }

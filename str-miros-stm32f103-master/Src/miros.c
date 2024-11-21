@@ -68,9 +68,6 @@ void OS_init(void *stkSto, uint32_t stkSize) {
 }
 
 // Calculate the next task index (the position in OS_Thread array of next task) 
-void OS_calculate_next_periodic_task (void){
-    OS_thread_running_index = LOG2(OS_readySet);
-}
 
 void OS_wait_next_period(){
     __disable_irq();
@@ -79,7 +76,6 @@ void OS_wait_next_period(){
     OS_readySet   &= ~bit;  /* insert to set */
     OS_waiting_next_periodSet |= bit; /* remove from set */
 
-    OS_calculate_next_periodic_task();
     OS_sched();
     __enable_irq();
 }
@@ -98,7 +94,6 @@ void OS_finished_aperiodic_task(void){
 
     OS_aperiodic_tasks[number_aperiodic_tasks] = 0;
 
-    OS_calculate_next_periodic_task();
     OS_sched();
     __enable_irq();
 }
@@ -107,6 +102,9 @@ void OS_finished_aperiodic_task(void){
 void OS_sched(void) {
 
     OSThread *next;
+
+    OS_thread_running_index = LOG2(OS_readySet);
+
     if (OS_thread_running_index == 0U) {
 
         // If there is aperiodic task to be executable 
@@ -143,7 +141,6 @@ void OS_run(void) {
     OS_onStartup();
 
     __disable_irq();
-    OS_calculate_next_periodic_task();
     OS_sched();
     __enable_irq();
 
