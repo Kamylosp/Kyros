@@ -48,6 +48,8 @@ uint8_t OS_thread_running_index = 0;
 uint8_t number_periodic_tasks = 0;
 uint8_t number_aperiodic_tasks = 0;
 
+struct_priority_task priority_task;
+
 #define LOG2(x) (32U - __builtin_clz(x))
 
 OSThread idleThread;
@@ -103,21 +105,25 @@ void OS_sched(void) {
 
     OSThread *next;
 
-    OS_thread_running_index = LOG2(OS_readySet);
+    if (priority_task.priority_level){
+        // If there is some task in a critical region
+        next = priority_task.p_task;
 
-    if (OS_thread_running_index == 0U) {
-
-        // If there is aperiodic task to be executable 
-        if (number_aperiodic_tasks){
-            next = OS_aperiodic_tasks[0];
-        } else {
-            next = OS_periodic_tasks[0]; /* the idle thread */
+    } else { 
+        OS_thread_running_index = LOG2(OS_readySet);
+        if (OS_thread_running_index == 0U) {
+            // If there is aperiodic task to be executable 
+            if (number_aperiodic_tasks){
+                next = OS_aperiodic_tasks[0];
+            } else {
+                next = OS_periodic_tasks[0]; /* the idle thread */
+            }
         }
-    }
-    else {
-        next = OS_periodic_tasks[OS_thread_running_index];
+        else {
+            next = OS_periodic_tasks[OS_thread_running_index];
 
-        Q_ASSERT(next != (OSThread *)0);
+            Q_ASSERT(next != (OSThread *)0);
+        }
     }
 
     /* trigger PendSV, if needed */
@@ -141,6 +147,8 @@ void OS_run(void) {
     OS_onStartup();
 
     __disable_irq();
+    priority_task.p_task = 0;
+    priority_task.priority_level = 0;
     OS_sched();
     __enable_irq();
 
@@ -197,6 +205,24 @@ void OS_delay(uint32_t ticks) {
     OS_delayedSet |= bit;
     OS_sched();
     __asm volatile ("cpsie i");
+}
+
+/* initialization of the semaphore variable */
+void enter_critical_region(){
+    __disable_irq();
+
+    priority_task.p_task = OS_curr;
+    priority_task.priority_level++;	
+
+    __enable_irq();
+}
+
+void out_critical_region(){
+    __disable_irq();
+
+    priority_task.priority_level--;	
+
+    __enable_irq();
 }
 
 /* initialization of the semaphore variable */

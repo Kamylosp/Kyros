@@ -60,6 +60,10 @@ typedef struct {
     uint32_t stack_thread[40];
 } struct_periodic_task;
 
+typedef struct {
+    struct_periodic_task *p_task;
+    uint8_t priority_level;
+} struct_priority_task;
 
 #define TICKS_PER_SEC 100U
 
@@ -70,6 +74,10 @@ void OS_calculate_next_periodic_task (void);
 void OS_wait_next_period(void);
 
 void OS_finished_aperiodic_task(void);
+
+void enter_critical_region();
+
+void out_critical_region();
 
 void OS_init(void *stkSto, uint32_t stkSize);
 
