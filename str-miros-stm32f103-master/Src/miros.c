@@ -36,23 +36,28 @@
 
 Q_DEFINE_THIS_FILE
 
+#define NUM_MAX_PERIODIC_TASKS 30
+#define NUM_MAX_APERIODIC_TASKS 10
+#define NUM_MAX_NESTED_CRITICAL_REGIONS 10
+
 OSThread * volatile OS_curr; /* pointer to the current thread */
 OSThread * volatile OS_next; /* pointer to the next thread to run */
 
-OSThread *OS_periodic_tasks[32 + 1]; /* array of periodics tasks */
-OSThread *OS_aperiodic_tasks[8]; /* array of aperiodics tasks */
+OSThread *OS_tasks[NUM_MAX_PERIODIC_TASKS + 2]; /* array of tasks*/
+OSThread *OS_aperiodic_tasks[NUM_MAX_APERIODIC_TASKS]; /* array of aperiodics tasks */
 uint32_t OS_readySet = 0; /* bitmask of threads that are ready to run */
 uint32_t OS_delayedSet = 0; /* bitmask of threads that are delayed */
 uint32_t OS_waiting_next_periodSet = 0; /* bitmask of threads that are waiting next period */
-uint8_t OS_thread_running_index = 0;
 uint8_t number_periodic_tasks = 0;
 uint8_t number_aperiodic_tasks = 0;
 
 uint32_t time_sec=0;
 
-struct_priority_task priority_task;
+// Priority and index in OS_tasks array of a task in critical region
+#define PRIORITY_CRITICAL_REGION_NPP NUM_MAX_PERIODIC_TASKS+1       
 
 #define LOG2(x) (32U - __builtin_clz(x))
+
 
 OSThread idleThread;
 void main_idleThread() {
@@ -91,12 +96,15 @@ void OS_finished_aperiodic_task(void){
         for (uint8_t i = 1; i <=number_aperiodic_tasks; i++){
             OS_aperiodic_tasks[i-1] = OS_aperiodic_tasks[i];
             OS_aperiodic_tasks[i-1]->prio = i-1;
+            OS_aperiodic_tasks[i-1]->critical_regions_historic[0] = i-1;
         }
     }
 
+    // Decreasing number of aperiodic tasks
     number_aperiodic_tasks--;
 
-    OS_aperiodic_tasks[number_aperiodic_tasks] = 0;
+    // Writing 0 in the pointer that will not be used 
+    OS_aperiodic_tasks[number_aperiodic_tasks] = (OSThread *) 0;
 
     OS_sched();
     __enable_irq();
@@ -104,29 +112,27 @@ void OS_finished_aperiodic_task(void){
 
 
 void OS_sched(void) {
-
     OSThread *next;
+    uint8_t OS_Periodic_task_running_index = LOG2(OS_readySet);
 
-    if (priority_task.priority_level){
-        // If there is some task in a critical region
-        next = priority_task.p_task;
+    // If there is not any periodic task ready to sched
+    if (OS_Periodic_task_running_index == 0U) {
 
-    } else { 
-        OS_thread_running_index = LOG2(OS_readySet);
-        if (OS_thread_running_index == 0U) {
-            // If there is aperiodic task to be executable 
-            if (number_aperiodic_tasks){
-                next = OS_aperiodic_tasks[0];
-            } else {
-                next = OS_periodic_tasks[0]; /* the idle thread */
-            }
+        // If there is an aperiodic task to be executable 
+        if (number_aperiodic_tasks){
+            next = OS_aperiodic_tasks[0];
+
+        } else {
+            next = OS_tasks[0]; /* the idle thread */
         }
-        else {
-            next = OS_periodic_tasks[OS_thread_running_index];
 
-            Q_ASSERT(next != (OSThread *)0);
-        }
+    } else {
+        next = OS_tasks[OS_Periodic_task_running_index];
     }
+
+    
+    Q_ASSERT(next != (OSThread *)0);
+    
 
     /* trigger PendSV, if needed */
     if (next != OS_curr) {
@@ -149,8 +155,6 @@ void OS_run(void) {
     OS_onStartup();
 
     __disable_irq();
-    priority_task.p_task = 0;
-    priority_task.priority_level = 0;
     OS_sched();
     __enable_irq();
 
@@ -165,7 +169,7 @@ void OS_tick(void) {
 
     uint32_t workingSet = OS_delayedSet;
     while (workingSet != 0U) {
-        OSThread *t = OS_periodic_tasks[LOG2(workingSet)];
+        OSThread *t = OS_tasks[LOG2(workingSet)];
         uint32_t bit;
         Q_ASSERT((t != (OSThread *)0) && (t->timeout != 0U));
 
@@ -180,7 +184,7 @@ void OS_tick(void) {
 
     /* Update the dinamics parameters os periodics tasks */
     for (int i = 1; i <= number_periodic_tasks; i++){
-        OSThread *t = OS_periodic_tasks[i];
+        OSThread *t = OS_tasks[i];
 
         t->task_parameters->deadline_dinamic--;
         t->task_parameters->period_dinamic--;
@@ -202,7 +206,7 @@ void OS_delay(uint32_t ticks) {
     __asm volatile ("cpsid i");
 
     /* never call OS_delay from the idleThread */
-    Q_REQUIRE(OS_curr != OS_periodic_tasks[0]);
+    Q_REQUIRE(OS_curr != OS_tasks[0]);
 
     OS_curr->timeout = ticks;
     bit = (1U << (OS_curr->prio - 1U));
@@ -210,24 +214,6 @@ void OS_delay(uint32_t ticks) {
     OS_delayedSet |= bit;
     OS_sched();
     __asm volatile ("cpsie i");
-}
-
-/* initialization of the semaphore variable */
-void enter_critical_region(){
-    __disable_irq();
-
-    priority_task.p_task = OS_curr;
-    priority_task.priority_level++;	
-
-    __enable_irq();
-}
-
-void out_critical_region(){
-    __disable_irq();
-
-    priority_task.priority_level--;	
-
-    __enable_irq();
 }
 
 /* initialization of the semaphore variable */
@@ -245,6 +231,24 @@ void sem_up(semaphore_t *p_semaphore){
     if (p_semaphore->sem_value < p_semaphore->max_value)
 	    p_semaphore->sem_value++;
 
+
+    for (uint8_t i = 0; i < NUM_MAX_NESTED_CRITICAL_REGIONS; i++){
+
+        OS_curr->critical_regions_historic[i] = OS_curr->critical_regions_historic[i+1];
+        OS_curr->critical_regions_historic[i+1] = 0;
+
+        if (OS_curr->critical_regions_historic[i] == OS_curr->prio){
+
+            // If it was in just one critical region
+            if (i == 0){
+                uint32_t bit = (1U << (PRIORITY_CRITICAL_REGION_NPP - 1U));
+                OS_readySet &= ~bit;
+                OS_tasks[PRIORITY_CRITICAL_REGION_NPP] = (OSThread *) 0;
+            }
+            break;
+        }
+    }
+
 	__enable_irq();
 }
 
@@ -255,6 +259,26 @@ void sem_down(semaphore_t *p_semaphore){
 		OS_delay(1U);
 		__disable_irq();
 	}
+
+    for (uint8_t i = 0; i < NUM_MAX_NESTED_CRITICAL_REGIONS; i++){
+        if (OS_curr->critical_regions_historic[i] == OS_curr->prio) {
+
+            Q_REQUIRE(i+1 < NUM_MAX_NESTED_CRITICAL_REGIONS);
+
+            for (uint8_t j = i+1; j > 0; j--){
+                OS_curr->critical_regions_historic[j] = OS_curr->critical_regions_historic[j-1];
+            }
+
+            OS_curr->critical_regions_historic[0] = PRIORITY_CRITICAL_REGION_NPP;
+            OS_tasks[PRIORITY_CRITICAL_REGION_NPP] = OS_curr;
+
+            // Set the bit of the task in OS_readySet bitmask
+            uint32_t bit = (1U << (PRIORITY_CRITICAL_REGION_NPP - 1U));
+            OS_readySet |= bit;
+
+            break;
+        }
+    }
 
 	p_semaphore->sem_value--;
 }
@@ -273,7 +297,7 @@ void OSAperiodic_task_start(OSThread *me,
     uint32_t *stk_limit;
 
     /* number of aperiodic tasks must be lower or equal to array with its parameters */
-    Q_REQUIRE((number_aperiodic_tasks+1 < Q_DIM(OS_periodic_tasks)));
+    Q_REQUIRE((number_aperiodic_tasks+1 < NUM_MAX_APERIODIC_TASKS));
 
     *(--sp) = (1U << 24);  /* xPSR */
     *(--sp) = (uint32_t)threadHandler; /* PC */
@@ -306,6 +330,7 @@ void OSAperiodic_task_start(OSThread *me,
 
     OS_aperiodic_tasks[number_aperiodic_tasks] = me;
     OS_aperiodic_tasks[number_aperiodic_tasks]->prio = number_aperiodic_tasks;
+    OS_aperiodic_tasks[number_aperiodic_tasks]->critical_regions_historic[0] = number_aperiodic_tasks;
 
     number_aperiodic_tasks++;
 }
@@ -321,11 +346,11 @@ void OSPeriodic_task_start(
     uint32_t *sp = (uint32_t *)((((uint32_t)stkSto + stkSize) / 8) * 8);
     uint32_t *stk_limit;
 
-    /* priority must be in ragne
+    /* priority must be in range of periodic tasks in array
     * and the priority level must be unused
     */
-    Q_REQUIRE((number_periodic_tasks+1 < Q_DIM(OS_periodic_tasks))
-              && (OS_periodic_tasks[number_periodic_tasks+1] == (OSThread *)0));
+    Q_REQUIRE((number_periodic_tasks+1 < Q_DIM(OS_tasks)-1)
+              && (OS_tasks[number_periodic_tasks+1] == (OSThread *)0));
 
     if (threadHandler != &main_idleThread)
         number_periodic_tasks++;
@@ -361,8 +386,9 @@ void OSPeriodic_task_start(
 
     // If is the Idle Thread
     if (number_periodic_tasks == 0){
-        OS_periodic_tasks[0] = me;
-        OS_periodic_tasks[0]->prio = number_periodic_tasks;
+        OS_tasks[0] = me;
+        OS_tasks[0]->prio = 0;
+        OS_tasks[0]->critical_regions_historic[0] = 0;
 
     } else {
         for (uint8_t i=1; i <= number_periodic_tasks; i++){
@@ -370,23 +396,26 @@ void OSPeriodic_task_start(
 
             // If is the last loop, the task_me has the higher priority
             if (i == number_periodic_tasks){
-                OS_periodic_tasks[i] = me;
-                OS_periodic_tasks[i]->prio = i;
+                OS_tasks[i] = me;
+                OS_tasks[i]->prio = i;
+                OS_tasks[i]->critical_regions_historic[0] = i;
 
-            } else if (OS_periodic_tasks[i]->task_parameters->deadline_absolute < me->task_parameters->deadline_absolute ||
+            } else if (OS_tasks[i]->task_parameters->deadline_absolute < me->task_parameters->deadline_absolute ||
             /* If the task_i has a lower deadline, it has a higher priority or
                 its has a lower period with the same deadline than we need to 
                 rearrange the tasks with the correct priority
             */
-                    (OS_periodic_tasks[i]->task_parameters->deadline_absolute == me->task_parameters->deadline_absolute &&
-                        OS_periodic_tasks[i]->task_parameters->period_absolute < me->task_parameters->period_absolute)){
+                    (OS_tasks[i]->task_parameters->deadline_absolute == me->task_parameters->deadline_absolute &&
+                        OS_tasks[i]->task_parameters->period_absolute < me->task_parameters->period_absolute)){
 
                 for (uint8_t j = number_periodic_tasks; j > i; j--){
-                    OS_periodic_tasks[j] = OS_periodic_tasks[j-1];
-                    OS_periodic_tasks[j]->prio = j;
+                    OS_tasks[j] = OS_tasks[j-1];
+                    OS_tasks[j]->prio = j;
+                    OS_tasks[j]->critical_regions_historic[0] = j;
                 }
-                OS_periodic_tasks[i] = me;
-                OS_periodic_tasks[i]->prio = i;
+                OS_tasks[i] = me;
+                OS_tasks[i]->prio = i;
+                OS_tasks[i]->critical_regions_historic[0] = i;
                 break;
             }
         }

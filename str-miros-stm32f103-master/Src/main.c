@@ -27,12 +27,12 @@ void task1(){
         	cont_task_1++;
         
 
-        enter_critical_region();
+        //enter_critical_region();
 
         while(cont_task_1 < TWO_SEC_IN_CONT)
         	cont_task_1++;
 
-        out_critical_region();
+        //out_critical_region();
 
 
         OS_wait_next_period();
@@ -48,12 +48,12 @@ void task2(){
         	cont_task_2++;
         
 
-        enter_critical_region();
+        //enter_critical_region();
 
         while(cont_task_2 < THREE_SEC_IN_CONT)
         	cont_task_2++;
 
-        out_critical_region();
+        //out_critical_region();
 
         OS_wait_next_period();
     }
