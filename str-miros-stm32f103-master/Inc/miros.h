@@ -32,6 +32,7 @@
 #ifndef MIROS_H
 #define MIROS_H
 
+#include "stm32f1xx_hal.h"
 
 typedef struct {
     uint32_t deadline_absolute;
@@ -51,7 +52,7 @@ typedef struct {
 } OSThread;
 
 typedef struct {
-	uint32_t sem_value;		//
+	uint32_t sem_value;
     uint32_t max_value;
 } semaphore_t;
 
@@ -61,7 +62,7 @@ typedef struct {
 } struct_periodic_task;
 
 typedef struct {
-    struct_periodic_task *p_task;
+    OSThread *p_task;
     uint8_t priority_level;
 } struct_priority_task;
 

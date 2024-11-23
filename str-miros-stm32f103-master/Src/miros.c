@@ -48,6 +48,8 @@ uint8_t OS_thread_running_index = 0;
 uint8_t number_periodic_tasks = 0;
 uint8_t number_aperiodic_tasks = 0;
 
+uint32_t time_sec=0;
+
 struct_priority_task priority_task;
 
 #define LOG2(x) (32U - __builtin_clz(x))
@@ -158,6 +160,9 @@ void OS_run(void) {
 }
 
 void OS_tick(void) {
+
+	time_sec = HAL_GetTick()/100;
+
     uint32_t workingSet = OS_delayedSet;
     while (workingSet != 0U) {
         OSThread *t = OS_periodic_tasks[LOG2(workingSet)];

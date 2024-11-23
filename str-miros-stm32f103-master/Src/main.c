@@ -7,28 +7,33 @@ uint32_t cont_task_3 = 0;
 uint32_t cont_aperiodic_task_1 = 0;
 uint32_t cont_aperiodic_task_2 = 0;
 
+#define ONE_SEC_IN_CONT 0x6CFFF
+#define TWO_SEC_IN_CONT 0xD8FFE
+#define THREE_SEC_IN_CONT 0x144FFD
+
 struct_periodic_task struct_task1;
 struct_periodic_task struct_task2;
-struct_periodic_task struct_task3;
-
-struct_periodic_task struct_aperiodic_task_1;
-struct_periodic_task struct_aperiodic_task_2;
 
 OSThread_periodics_task_parameters parameters_periodic_task_1;
 OSThread_periodics_task_parameters parameters_periodic_task_2;
-OSThread_periodics_task_parameters parameters_periodic_task_3;
 
 uint32_t aux_tick = 0;
 
 void task1(){
     while(1){
-    	uint32_t start = HAL_GetTick();
-
         cont_task_1 = 0;
-        while(cont_task_1 < 0xFFFF)
+
+        while(cont_task_1 < ONE_SEC_IN_CONT)
+        	cont_task_1++;
+        
+
+        enter_critical_region();
+
+        while(cont_task_1 < TWO_SEC_IN_CONT)
         	cont_task_1++;
 
-        aux_tick = HAL_GetTick() - start;
+        out_critical_region();
+
 
         OS_wait_next_period();
     }
@@ -38,49 +43,20 @@ void task2(){
     while(1){
 
         cont_task_2 = 0;
-        while(cont_task_2 < 0x1FFFF)
+
+        while(cont_task_2 < ONE_SEC_IN_CONT)
+        	cont_task_2++;
+        
+
+        enter_critical_region();
+
+        while(cont_task_2 < THREE_SEC_IN_CONT)
         	cont_task_2++;
 
-        OS_wait_next_period();
-    }
-}
-
-void task3(){
-    while(1){
-
-        cont_task_3 = 0;
-        while(cont_task_3 < 0x3FFFF){
-                	cont_task_3++;
-        }
+        out_critical_region();
 
         OS_wait_next_period();
     }
-}
-
-void aperiodic_task_1(){
-
-	cont_aperiodic_task_1 = 0;
-	while(cont_aperiodic_task_1 < 0x6FFFF)
-				cont_aperiodic_task_1++;
-
-	OSAperiodic_task_start(&struct_aperiodic_task_2.TCB_thread,
-							&aperiodic_task_2,
-							struct_aperiodic_task_2.stack_thread,
-							sizeof(struct_aperiodic_task_2.stack_thread));
-
-	while(cont_aperiodic_task_1 < 0x1FFFFF)
-					cont_aperiodic_task_1++;
-
-	OS_finished_aperiodic_task();
-}
-
-void aperiodic_task_2(){
-
-	cont_aperiodic_task_2 = 0;
-	while(cont_aperiodic_task_2 < 0x1FFFFF)
-		cont_aperiodic_task_2++;
-
-	OS_finished_aperiodic_task();
 }
 
 int main() {
@@ -89,45 +65,28 @@ int main() {
     // start the OS
     OS_init(stack_idleThread, sizeof(stack_idleThread));
 
-    parameters_periodic_task_1.deadline_absolute = 60;
-    parameters_periodic_task_1.deadline_dinamic = 60;
-    parameters_periodic_task_1.period_absolute = 60;
-    parameters_periodic_task_1.period_dinamic = 60;
+    parameters_periodic_task_1.deadline_absolute = 500;
+    parameters_periodic_task_1.deadline_dinamic = 500;
+    parameters_periodic_task_1.period_absolute = 500;
+    parameters_periodic_task_1.period_dinamic = 500;
 
-    parameters_periodic_task_2.deadline_absolute = 120;
-    parameters_periodic_task_2.deadline_dinamic = 120;
-    parameters_periodic_task_2.period_absolute = 120;
-    parameters_periodic_task_2.period_dinamic = 120;
-
-    parameters_periodic_task_3.deadline_absolute = 250;
-    parameters_periodic_task_3.deadline_dinamic = 250;
-    parameters_periodic_task_3.period_absolute = 250;
-    parameters_periodic_task_3.period_dinamic = 250;
+    parameters_periodic_task_2.deadline_absolute = 1000;
+    parameters_periodic_task_2.deadline_dinamic = 1000;
+    parameters_periodic_task_2.period_absolute = 1000;
+    parameters_periodic_task_2.period_dinamic = 1000;
 
     struct_task1.TCB_thread.task_parameters = &parameters_periodic_task_1;
     struct_task2.TCB_thread.task_parameters = &parameters_periodic_task_2;
-    struct_task3.TCB_thread.task_parameters = &parameters_periodic_task_3;
 
     OSPeriodic_task_start(&struct_task1.TCB_thread, 
                     &task1,
                     struct_task1.stack_thread,
                     sizeof(struct_task1.stack_thread));
 
-
     OSPeriodic_task_start(&struct_task2.TCB_thread, 
                     &task2,
                     struct_task2.stack_thread,
                     sizeof(struct_task2.stack_thread));
-
-    OSPeriodic_task_start(&struct_task3.TCB_thread, 
-                    &task3,
-                    struct_task3.stack_thread,
-                    sizeof(struct_task3.stack_thread));
-
-    OSAperiodic_task_start(&struct_aperiodic_task_1.TCB_thread,
-    						&aperiodic_task_1,
-							struct_aperiodic_task_1.stack_thread,
-							sizeof(struct_aperiodic_task_1.stack_thread));
 
     //MX_GPIO_Init();
 
