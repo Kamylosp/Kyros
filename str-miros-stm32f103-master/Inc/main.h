@@ -12,8 +12,6 @@
 
 void task1();
 void task2();
-void task3();
 
-void aperiodic_task_1();
-void aperiodic_task_2();
+void aperiodic_task1();
 #endif

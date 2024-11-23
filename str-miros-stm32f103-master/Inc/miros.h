@@ -59,14 +59,12 @@ typedef struct {
 typedef struct {
     OSThread TCB_thread;
     uint32_t stack_thread[40];
-} struct_periodic_task;
+} struct_tasks;
 
 
 #define TICKS_PER_SEC 100U
 
 typedef void (*OSThreadHandler)();
-
-void OS_calculate_next_periodic_task (void);
 
 void OS_wait_next_period(void);
 
@@ -93,7 +91,7 @@ void OS_tick(void);
 void OS_onStartup(void);
 
 /* initialization of the semaphore variable */
-void semaphore_init(semaphore_t *p_semaphore, uint32_t start_value);
+void semaphore_init(semaphore_t *p_semaphore, uint32_t start_value, uint32_t max_value);
 
 /*  */
 void sem_up(semaphore_t *p_semaphore);

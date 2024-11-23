@@ -36,7 +36,7 @@
 
 Q_DEFINE_THIS_FILE
 
-#define NUM_MAX_PERIODIC_TASKS 30
+#define NUM_MAX_PERIODIC_TASKS 10
 #define NUM_MAX_APERIODIC_TASKS 10
 #define NUM_MAX_NESTED_CRITICAL_REGIONS 10
 
@@ -50,8 +50,6 @@ uint32_t OS_delayedSet = 0; /* bitmask of threads that are delayed */
 uint32_t OS_waiting_next_periodSet = 0; /* bitmask of threads that are waiting next period */
 uint8_t number_periodic_tasks = 0;
 uint8_t number_aperiodic_tasks = 0;
-
-uint32_t time_sec=0;
 
 // Priority and index in OS_tasks array of a task in critical region
 #define PRIORITY_CRITICAL_REGION_NPP NUM_MAX_PERIODIC_TASKS+1       
@@ -165,8 +163,6 @@ void OS_run(void) {
 
 void OS_tick(void) {
 
-	time_sec = HAL_GetTick()/100;
-
     uint32_t workingSet = OS_delayedSet;
     while (workingSet != 0U) {
         OSThread *t = OS_tasks[LOG2(workingSet)];
@@ -217,11 +213,12 @@ void OS_delay(uint32_t ticks) {
 }
 
 /* initialization of the semaphore variable */
-void semaphore_init(semaphore_t *p_semaphore, uint32_t start_value){
+void semaphore_init(semaphore_t *p_semaphore, uint32_t start_value, uint32_t max_value){
 	if (!p_semaphore){
 		__disable_irq();
 	}
 	p_semaphore->sem_value = start_value;
+	p_semaphore->max_value = max_value;
 }
 
 /*  */
@@ -281,6 +278,8 @@ void sem_down(semaphore_t *p_semaphore){
     }
 
 	p_semaphore->sem_value--;
+
+	__enable_irq();
 }
 
 void error_indicator_blink() {
