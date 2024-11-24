@@ -52,7 +52,7 @@ uint8_t number_periodic_tasks = 0;
 uint8_t number_aperiodic_tasks = 0;
 
 // Priority and index in OS_tasks array of a task in critical region
-#define PRIORITY_CRITICAL_REGION_NPP NUM_MAX_PERIODIC_TASKS+1       
+#define PRIORITY_CRITICAL_REGION_NPP NUM_MAX_PERIODIC_TASKS+1
 
 #define LOG2(x) (32U - __builtin_clz(x))
 
@@ -90,19 +90,16 @@ void OS_wait_next_period(){
 void OS_finished_aperiodic_task(void){
     __disable_irq();
     
-    if (number_aperiodic_tasks > 1){
-        for (uint8_t i = 1; i <=number_aperiodic_tasks; i++){
-            OS_aperiodic_tasks[i-1] = OS_aperiodic_tasks[i];
-            OS_aperiodic_tasks[i-1]->prio = i-1;
-            OS_aperiodic_tasks[i-1]->critical_regions_historic[0] = i-1;
-        }
+    // Update the queue array of aperiodic tasks
+    for (uint8_t i = 0; i < number_aperiodic_tasks; i++){
+        OS_aperiodic_tasks[i] = OS_aperiodic_tasks[i+1];
+        OS_aperiodic_tasks[i]->prio = i;
+        OS_aperiodic_tasks[i]->critical_regions_historic[0] = i;
+        OS_aperiodic_tasks[i+1] = (OSThread *) 0;
     }
 
     // Decreasing number of aperiodic tasks
     number_aperiodic_tasks--;
-
-    // Writing 0 in the pointer that will not be used 
-    OS_aperiodic_tasks[number_aperiodic_tasks] = (OSThread *) 0;
 
     OS_sched();
     __enable_irq();
@@ -128,9 +125,7 @@ void OS_sched(void) {
         next = OS_tasks[OS_Periodic_task_running_index];
     }
 
-    
     Q_ASSERT(next != (OSThread *)0);
-    
 
     /* trigger PendSV, if needed */
     if (next != OS_curr) {
@@ -155,7 +150,6 @@ void OS_run(void) {
     __disable_irq();
     OS_sched();
     __enable_irq();
-
 
     /* the following code should never execute */
     Q_ERROR();
@@ -229,17 +223,24 @@ void sem_up(semaphore_t *p_semaphore){
 	    p_semaphore->sem_value++;
 
 
-    for (uint8_t i = 0; i < NUM_MAX_NESTED_CRITICAL_REGIONS; i++){
-
+    // Update the queue of critical_regions_historic array and update the OS_readySet bitmask for schedulling
+    for (uint8_t i = 0; i < NUM_MAX_NESTED_CRITICAL_REGIONS+1; i++){
+       
+        // Update the queue of critical_regions_historic array 
         OS_curr->critical_regions_historic[i] = OS_curr->critical_regions_historic[i+1];
         OS_curr->critical_regions_historic[i+1] = 0;
 
+        // If 'i' is the end position of array
         if (OS_curr->critical_regions_historic[i] == OS_curr->prio){
 
-            // If it was in just one critical region
+            // If there was just one critical region,
             if (i == 0){
+
+                // Update the OS_readySet bitmask
                 uint32_t bit = (1U << (PRIORITY_CRITICAL_REGION_NPP - 1U));
                 OS_readySet &= ~bit;
+
+                // Set a null pointer in the unused position 
                 OS_tasks[PRIORITY_CRITICAL_REGION_NPP] = (OSThread *) 0;
             }
             break;
@@ -257,15 +258,21 @@ void sem_down(semaphore_t *p_semaphore){
 		__disable_irq();
 	}
 
-    for (uint8_t i = 0; i < NUM_MAX_NESTED_CRITICAL_REGIONS; i++){
+    // Update the queue of critical_regions_historic array and update the OS_readySet bitmask for schedulling
+    for (uint8_t i = 0; i < NUM_MAX_NESTED_CRITICAL_REGIONS+1; i++){
+        
+        // If 'i' is the end position of array
         if (OS_curr->critical_regions_historic[i] == OS_curr->prio) {
 
-            Q_REQUIRE(i+1 < NUM_MAX_NESTED_CRITICAL_REGIONS);
+            // Check if the critical_regions_historic queue is not full
+            Q_REQUIRE(i+1 < NUM_MAX_NESTED_CRITICAL_REGIONS+1);
 
+            // Update the positions of index
             for (uint8_t j = i+1; j > 0; j--){
                 OS_curr->critical_regions_historic[j] = OS_curr->critical_regions_historic[j-1];
             }
 
+            // Set the new prioriry of task and put the pointer in OS_tasks array
             OS_curr->critical_regions_historic[0] = PRIORITY_CRITICAL_REGION_NPP;
             OS_tasks[PRIORITY_CRITICAL_REGION_NPP] = OS_curr;
 
@@ -288,6 +295,7 @@ void error_indicator_blink() {
 	while (1){}
 }
 
+// Start a aperiodic task
 void OSAperiodic_task_start(OSThread *me,
     OSThreadHandler threadHandler,
     void *stkSto, uint32_t stkSize){
@@ -337,8 +345,8 @@ void OSAperiodic_task_start(OSThread *me,
 void OSPeriodic_task_start(
     OSThread *me,
     OSThreadHandler threadHandler,
-    void *stkSto, uint32_t stkSize)
-{
+    void *stkSto, uint32_t stkSize) {
+
     /* round down the stack top to the 8-byte boundary
     * NOTE: ARM Cortex-M stack grows down from hi -> low memory
     */

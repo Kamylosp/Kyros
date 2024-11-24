@@ -1,5 +1,4 @@
 #include "main.h"
-#include "config_gpio.h"
 
 uint32_t cont_task_1 = 0;
 uint32_t cont_task_2 = 0;
@@ -138,19 +137,4 @@ int main() {
     //MX_GPIO_Init();
 
     OS_run();
-}
-
-
-uint32_t previousMillis = 0;
-
-void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
-  /* Prevent unused argument(s) compilation warning */
-  //UNUSED(GPIO_Pin);
-
-	uint32_t currentMillis = HAL_GetTick();
-
-	if (GPIO_Pin == GPIO_PIN_0 && (currentMillis - previousMillis) > 1){
-		//ky++;
-		previousMillis = currentMillis;
-	}
 }
