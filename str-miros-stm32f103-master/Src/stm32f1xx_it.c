@@ -20,6 +20,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "stm32f1xx_hal.h"
 #include "stm32f1xx_it.h"
+#include "config_gpio.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 /* USER CODE END Includes */
@@ -213,6 +214,17 @@ void Q_onAssert(char const *module, int loc) {
     (void)module; /* avoid the "unused parameter" compiler warning */
     (void)loc;    /* avoid the "unused parameter" compiler warning */
     NVIC_SystemReset();
+}
+
+void EXTI0_IRQHandler(void)
+{
+  /* USER CODE BEGIN EXTI0_IRQn 0 */
+
+  /* USER CODE END EXTI0_IRQn 0 */
+  HAL_GPIO_EXTI_IRQHandler(Button_Pin);
+  /* USER CODE BEGIN EXTI0_IRQn 1 */
+
+  /* USER CODE END EXTI0_IRQn 1 */
 }
 
 /******************************************************************************/
