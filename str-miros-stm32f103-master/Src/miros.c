@@ -92,13 +92,19 @@ void OS_wait_next_period(){
 
 void OS_finished_aperiodic_task(void){
     __disable_irq();
-    
-    // Update the queue array of aperiodic tasks
-    for (uint8_t i = 0; i < number_aperiodic_tasks; i++){
-        OS_aperiodic_tasks[i] = OS_aperiodic_tasks[i+1];
-        OS_aperiodic_tasks[i]->prio = i;
-        OS_aperiodic_tasks[i]->critical_regions_historic[0] = i;
-        OS_aperiodic_tasks[i+1] = (OSThread *) 0;
+
+    if (number_aperiodic_tasks == 1){
+    	OS_aperiodic_tasks[0] = (OSThread *) 0;
+
+
+    } else {
+		// Update the queue array of aperiodic tasks
+		for (uint8_t i = 1; i <= number_aperiodic_tasks; i++){
+			OS_aperiodic_tasks[i-1] = OS_aperiodic_tasks[i];
+			OS_aperiodic_tasks[i-1]->prio = i-1;
+			OS_aperiodic_tasks[i-1]->critical_regions_historic[0] = i-1;
+			OS_aperiodic_tasks[i] = (OSThread *) 0;
+		}
     }
 
     // Decreasing number of aperiodic tasks
@@ -297,6 +303,8 @@ void OSAperiodic_task_start(OSThread *me,
     OSThreadHandler threadHandler,
     void *stkSto, uint32_t stkSize){
 
+	__disable_irq();
+
     uint32_t *sp = (uint32_t *)((((uint32_t)stkSto + stkSize) / 8) * 8);
     uint32_t *stk_limit;
 
@@ -337,6 +345,8 @@ void OSAperiodic_task_start(OSThread *me,
     OS_aperiodic_tasks[number_aperiodic_tasks]->critical_regions_historic[0] = number_aperiodic_tasks;
 
     number_aperiodic_tasks++;
+
+    __enable_irq();
 }
 
 void OSPeriodic_task_start(

@@ -20,6 +20,9 @@ Sensor de distância:
 */
 
 
+uint32_t cont_pwm = 0;
+uint32_t cont_sensor = 0;
+
 
 
 struct_tasks struct_distance_sensor_task;
@@ -87,7 +90,9 @@ int main() {
 
 void read_distance_sensor(){
     while(1){
-        float currentDistance = VL53L0X_readRangeSingleMillimeters(&distanceSensor);
+    	cont_sensor++;
+        //float currentDistance = VL53L0X_readRangeSingleMillimeters(&distanceSensor);
+        float currentDistance = 50;
         PID_setInput(&pidController, currentDistance, &mutex);
         OS_wait_next_period();
     }
@@ -95,12 +100,12 @@ void read_distance_sensor(){
 
 void pwm_actuator(){
     while(1){
+    	cont_pwm++;
         float pwmVal = PID_action(&pidController, &mutex);
         TIM2->CCR1 = (int) (pwmVal*TIM2->ARR);
         OS_wait_next_period();
     }
 }
-
 
 void aperiodic_task(){
     sem_down(&mutex);
@@ -111,7 +116,7 @@ void aperiodic_task(){
         pidController.setpoint = 0.02;
     
     sem_up(&mutex);
-    
+
     OS_finished_aperiodic_task();
 }
 
@@ -177,5 +182,6 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
                                     &aperiodic_task,
                                     struct_aperiodic_task.stack_thread,
                                     sizeof(struct_aperiodic_task.stack_thread));
+		    previousTick = currentTick;
 	}
 }
