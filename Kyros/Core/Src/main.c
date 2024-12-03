@@ -130,7 +130,7 @@ uint32_t ky=0;
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 
 	uint32_t currentTick = HAL_GetTick();
-	if (GPIO_Pin == GPIO_PIN_0 && (currentTick - previousTick) > 5){
+	if (GPIO_Pin == GPIO_PIN_0 && (currentTick - previousTick) > 10){
 		previousTick = currentTick;
 		ky++;
 	}

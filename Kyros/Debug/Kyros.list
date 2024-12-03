@@ -41,11 +41,11 @@ Idx Name          Size      VMA       LMA       File off  Algn
                   CONTENTS, READONLY, DEBUGGING, OCTETS
  18 .debug_line   000054f7  00000000  00000000  0003a46c  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 19 .debug_str    00082afc  00000000  00000000  0003f963  2**0
+ 19 .debug_str    00082b33  00000000  00000000  0003f963  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 20 .debug_frame  00000eec  00000000  00000000  000c2460  2**2
+ 20 .debug_frame  00000eec  00000000  00000000  000c2498  2**2
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 21 .debug_line_str 00000066  00000000  00000000  000c334c  2**0
+ 21 .debug_line_str 00000066  00000000  00000000  000c3384  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
 
 Disassembly of section .text:
@@ -114,11 +114,11 @@ void MX_GPIO_Init(void)
   GPIO_InitStruct.Pin = Button_Pin;
  8000208:	2301      	movs	r3, #1
  800020a:	607b      	str	r3, [r7, #4]
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
- 800020c:	f44f 1304 	mov.w	r3, #2162688	; 0x210000
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+ 800020c:	f44f 1388 	mov.w	r3, #1114112	; 0x110000
  8000210:	60bb      	str	r3, [r7, #8]
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
- 8000212:	2300      	movs	r3, #0
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+ 8000212:	2301      	movs	r3, #1
  8000214:	60fb      	str	r3, [r7, #12]
   HAL_GPIO_Init(Button_GPIO_Port, &GPIO_InitStruct);
  8000216:	1d3b      	adds	r3, r7, #4
@@ -291,7 +291,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 	uint32_t currentTick = HAL_GetTick();
  8000306:	f000 fc41 	bl	8000b8c <HAL_GetTick>
  800030a:	60f8      	str	r0, [r7, #12]
-	if (GPIO_Pin == GPIO_PIN_0 && (currentTick - previousTick) > 5){
+	if (GPIO_Pin == GPIO_PIN_0 && (currentTick - previousTick) > 10){
  800030c:	88fb      	ldrh	r3, [r7, #6]
  800030e:	2b01      	cmp	r3, #1
  8000310:	d10d      	bne.n	800032e <HAL_GPIO_EXTI_Callback+0x32>
@@ -299,7 +299,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
  8000314:	681b      	ldr	r3, [r3, #0]
  8000316:	68fa      	ldr	r2, [r7, #12]
  8000318:	1ad3      	subs	r3, r2, r3
- 800031a:	2b05      	cmp	r3, #5
+ 800031a:	2b0a      	cmp	r3, #10
  800031c:	d907      	bls.n	800032e <HAL_GPIO_EXTI_Callback+0x32>
 		previousTick = currentTick;
  800031e:	4a06      	ldr	r2, [pc, #24]	; (8000338 <HAL_GPIO_EXTI_Callback+0x3c>)
