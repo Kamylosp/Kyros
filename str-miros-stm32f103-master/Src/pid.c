@@ -4,8 +4,6 @@
 
 Q_DEFINE_THIS_FILE
 
-float PERIOD_TOF_SENSOR = 0.05;     // em segundos
-
 void PID_setup(PIDController* controller, float kp, float ki, float kd, float setpoint, float max, float min) {
     Q_ASSERT(controller);
 
@@ -20,11 +18,7 @@ void PID_setup(PIDController* controller, float kp, float ki, float kd, float se
     controller->min = min;
 }
 
-float comp_p = 0;
-float comp_d = 0;
-float comp_i = 0;
-float out=0;
-
+/*
 float PID_action(PIDController* controller, semaphore_t* mutex) {
     Q_ASSERT(controller);
 
@@ -62,3 +56,5 @@ void PID_setInput(PIDController* controller, float input, semaphore_t* mutex) {
     controller->input = input;
     sem_up(mutex);
 }
+
+*/

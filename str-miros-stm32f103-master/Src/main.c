@@ -19,21 +19,30 @@ Sensor de distância:
 
 */
 
+float comp_p;
+float comp_d;
+float comp_i;
+
+uint8_t onde_estou = 0;
 
 uint32_t cont_pwm = 0;
 uint32_t cont_sensor = 0;
-
-
+const float PERIOD_TOF_SENSOR = 0.05;     // em segundos
+float pwmVal;
 
 struct_tasks struct_distance_sensor_task;
+struct_tasks struct_calc_pid;
 struct_tasks struct_pwm_actuator_task;
 struct_tasks struct_aperiodic_task;
 
 OSThread_periodics_task_parameters parameters_distance_sensor_task;
+OSThread_periodics_task_parameters parameters_calc_pid;
 OSThread_periodics_task_parameters parameters_pwm_actuator_task;
 
 PIDController pidController;
-semaphore_t mutex;
+semaphore_t mutex_setpoint;
+semaphore_t mutex_current_distance;
+semaphore_t mutex_pwm_value;
 
 TIM_HandleTypeDef htim2;
 
@@ -42,6 +51,7 @@ struct VL53L0X distanceSensor;
 static struct VL53L0X myTOFsensor = {.io_2v8 = false, .address = 0x52, .io_timeout = 500, .did_timeout = false};
 
 void read_distance_sensor();
+void calc_PID();
 void pwm_actuator();
 void distance_sensor_init();
 void MX_TIM2_Init(void);
@@ -56,7 +66,9 @@ int main() {
     MX_GPIO_Init();
     MX_TIM2_Init();
 
-    semaphore_init(&mutex, 1, 1);
+    semaphore_init(&mutex_setpoint, 1, 1);
+    semaphore_init(&mutex_current_distance, 1, 1);
+    semaphore_init(&mutex_pwm_value, 1, 1);
     PID_setup(&pidController, -0.0001, -0.00001, -0.00001, 200, 0.3, -0.3);
     distance_sensor_init();
 
@@ -65,12 +77,18 @@ int main() {
     parameters_distance_sensor_task.period_absolute = 5;
     parameters_distance_sensor_task.period_dinamic = 5;
 
+    parameters_calc_pid.deadline_absolute = 5;
+    parameters_calc_pid.deadline_dinamic = 5;
+    parameters_calc_pid.period_absolute = 5;
+    parameters_calc_pid.period_dinamic = 5;
+
     parameters_pwm_actuator_task.deadline_absolute = 5;
     parameters_pwm_actuator_task.deadline_dinamic = 5;
     parameters_pwm_actuator_task.period_absolute = 5;
     parameters_pwm_actuator_task.period_dinamic = 5;
 
     struct_distance_sensor_task.TCB_thread.task_parameters = &parameters_distance_sensor_task;
+    struct_calc_pid.TCB_thread.task_parameters = &parameters_calc_pid;
     struct_pwm_actuator_task.TCB_thread.task_parameters = &parameters_pwm_actuator_task;
 
     OSPeriodic_task_start(&struct_distance_sensor_task.TCB_thread, 
@@ -78,6 +96,11 @@ int main() {
                             struct_distance_sensor_task.stack_thread,
                             sizeof(struct_distance_sensor_task.stack_thread));
 
+    OSPeriodic_task_start(&struct_calc_pid.TCB_thread, 
+                            &calc_PID,
+                            struct_calc_pid.stack_thread,
+                            sizeof(struct_calc_pid.stack_thread));
+    
     OSPeriodic_task_start(&struct_pwm_actuator_task.TCB_thread, 
                             &pwm_actuator,
                             struct_pwm_actuator_task.stack_thread,
@@ -95,7 +118,49 @@ void read_distance_sensor(){
     while(1){
     	cont_sensor++;
         currentDistance = (int) VL53L0X_readRangeContinuousMillimeters(&distanceSensor);
-        PID_setInput(&pidController, currentDistance, &mutex);
+
+        sem_down(&mutex_current_distance);
+        pidController.input = currentDistance;
+        sem_up(&mutex_current_distance);
+
+        OS_wait_next_period();
+    }
+}
+
+void calc_PID(){
+    while(1){
+
+        sem_down(&mutex_current_distance);
+        sem_down(&mutex_setpoint);
+
+        float error = pidController.setpoint - pidController.input;
+
+        sem_up(&mutex_setpoint);
+        sem_up(&mutex_current_distance);
+
+
+        pidController.integral_sum = pidController.integral_sum + (error * PERIOD_TOF_SENSOR);
+        float derivative_term = (error - pidController.error_prev) / PERIOD_TOF_SENSOR;
+
+        pidController.error_prev = error;
+
+        comp_p = (pidController.Kp * error);
+        comp_d = (pidController.Kd * derivative_term);
+        comp_i = (pidController.Ki * pidController.integral_sum);
+
+        float pid_pwm_value = comp_p + comp_d + comp_i;
+
+        if (pid_pwm_value > pidController.max) {
+        pid_pwm_value = pidController.max;
+        }
+        if (pid_pwm_value < pidController.min) {
+        pid_pwm_value = pidController.min;
+        }
+
+        sem_down(&mutex_pwm_value);
+    	pwmVal = pid_pwm_value + 0.61;
+        sem_up(&mutex_pwm_value);
+
         OS_wait_next_period();
     }
 }
@@ -104,21 +169,25 @@ float pwmVal = 0;
 void pwm_actuator(){
     while(1){
     	cont_pwm++;
-        pwmVal = PID_action(&pidController, &mutex) + 0.61;
+
+        sem_down(&mutex_pwm_value);
         TIM2->CCR1 = (int) (pwmVal*TIM2->ARR);
+        sem_up(&mutex_pwm_value);
+
         OS_wait_next_period();
     }
 }
 
 void aperiodic_task(){
-    sem_down(&mutex);
 
-    if (pidController.setpoint == 400)
+    sem_down(&mutex_setpoint);
+
+    if (pidController.setpoint == 600)
         pidController.setpoint = 200;
     else
-        pidController.setpoint = 400;
+        pidController.setpoint = 600;
     
-    sem_up(&mutex);
+    sem_up(&mutex_setpoint);
 
     OS_finished_aperiodic_task();
 }
