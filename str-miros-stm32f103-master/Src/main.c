@@ -95,7 +95,6 @@ void read_distance_sensor(){
     while(1){
     	cont_sensor++;
         currentDistance = (int) VL53L0X_readRangeContinuousMillimeters(&distanceSensor);
-        //float currentDistance = 50;
         PID_setInput(&pidController, currentDistance, &mutex);
         OS_wait_next_period();
     }
@@ -115,9 +114,9 @@ void aperiodic_task(){
     sem_down(&mutex);
 
     if (pidController.setpoint == 400)
-        pidController.setpoint = 400;
-    else 
         pidController.setpoint = 200;
+    else
+        pidController.setpoint = 400;
     
     sem_up(&mutex);
 
