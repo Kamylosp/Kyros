@@ -100,12 +100,12 @@ void read_distance_sensor(){
     }
 }
 
-uint32_t pwmVal = 0;
+float pwmVal = 0;
 void pwm_actuator(){
     while(1){
     	cont_pwm++;
-        pwmVal = (int) (1000*PID_action(&pidController, &mutex)) + 610;
-        TIM2->CCR1 = (int) ((pwmVal/1000)*TIM2->ARR);
+        pwmVal = PID_action(&pidController, &mutex) + 0.61;
+        TIM2->CCR1 = (int) (pwmVal*TIM2->ARR);
         OS_wait_next_period();
     }
 }
