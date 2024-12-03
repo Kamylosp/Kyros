@@ -66,6 +66,8 @@ typedef struct {
 
 typedef void (*OSThreadHandler)();
 
+void OS_error();
+
 void OS_wait_next_period(void);
 
 void OS_finished_aperiodic_task(void);

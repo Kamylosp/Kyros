@@ -63,7 +63,10 @@ void main_idleThread() {
         OS_onIdle();
     }
 }
-
+void OS_error(){
+	__disable_irq();
+	while(1);
+}
 void OS_init(void *stkSto, uint32_t stkSize) {
     /* set the PendSV interrupt priority to the lowest level 0xFF */
     *(uint32_t volatile *)0xE000ED20 |= (0xFFU << 16);
@@ -287,12 +290,6 @@ void sem_down(semaphore_t *p_semaphore){
 	p_semaphore->sem_value--;
 
 	__enable_irq();
-}
-
-void error_indicator_blink() {
-	__disable_irq();
-
-	while (1){}
 }
 
 // Start a aperiodic task

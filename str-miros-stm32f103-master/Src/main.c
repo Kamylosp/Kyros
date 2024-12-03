@@ -4,6 +4,7 @@
 #include "pid.h"
 #include "VL53L0X.h"
 #include "config_gpio.h"
+#include "stm32f1xx_hal.h"
 
 struct_tasks struct_distance_sensor_task;
 struct_tasks struct_pwm_actuator_task;
@@ -15,35 +16,18 @@ OSThread_periodics_task_parameters parameters_pwm_actuator_task;
 PIDController pidController;
 semaphore_t mutex;
 
+TIM_HandleTypeDef htim2;
+
 struct VL53L0X distanceSensor;
 
 static struct VL53L0X myTOFsensor = {.io_2v8 = true, .address = 0b0101001, .io_timeout = 500, .did_timeout = false};
 
-/*
-Na biblioteca do VL53L0X, tem duas funções que a gente pode usar. Como a gente deve criar a task periodica pelo miros, 
-parece que tem q chamar essa função do startContinuous passando 0 como periodo no parâmetro, e dai a task q chama essa função
-precisa ter um periodo de 50ms. A outra alternativa seria passar 50ms direto no parametro dessa função, mas acho q quem define 
-o periodo é o miros, dai me parece que a primeira opcao seria a mais certa. Só precisa verificar se, quando o periodo é 0, ele 
-n fica num loop infinito lendo as temperaturas..
-
-// Start continuous ranging measurements. If period_ms (optional) is 0 or not
-// given, continuous back-to-back mode is used (the sensor takes measurements as
-// often as possible); otherwise, continuous timed mode is used, with the given
-// inter-measurement period in milliseconds determining how often the sensor
-// takes a measurement.
-// based on VL53L0X_StartMeasurement()
-void VL53L0X_startContinuous(struct VL53L0X* dev, uint32_t period_ms)
-
-// Performs a single-shot range measurement and returns the reading in
-// millimeters
-// based on VL53L0X_PerformSingleRangingMeasurement()
-uint16_t VL53L0X_readRangeSingleMillimeters(struct VL53L0X* dev)
-*/
 void read_distance_sensor();
 void pwm_actuator();
 void distance_sensor_init();
+void MX_TIM2_Init(void);
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin);
-
+void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
 
 int main() {
 	uint32_t stack_idleThread[40];
@@ -51,6 +35,8 @@ int main() {
     OS_init(stack_idleThread, sizeof(stack_idleThread));
 
     MX_GPIO_Init();
+    MX_TIM2_Init();
+
     semaphore_init(&mutex, 1, 1);
     PID_setup(&pidController, -0.0001, -0.00001, -0.00001, 0.02, 0.3, -0.3);
     distance_sensor_init();
@@ -78,6 +64,8 @@ int main() {
                             struct_pwm_actuator_task.stack_thread,
                             sizeof(struct_pwm_actuator_task.stack_thread));
 
+    HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
+
     OS_run();
 }
 
@@ -92,7 +80,7 @@ void read_distance_sensor(){
 void pwm_actuator(){
     while(1){
         float pwmVal = PID_action(&pidController, &mutex);
-        // Comandar PWM;
+        TIM2->CCR1 = (int) (pwmVal*TIM2->ARR);
         OS_wait_next_period();
     }
 }
@@ -118,6 +106,48 @@ void distance_sensor_init() {
 	VL53L0X_startContinuous(&myTOFsensor, 0);
     
     return;
+}
+
+void MX_TIM2_Init(void){
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+  TIM_OC_InitTypeDef sConfigOC = {0};
+
+  htim2.Instance = TIM2;
+  htim2.Init.Prescaler = 8-1;
+  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim2.Init.Period = 500-1;
+  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
+  {
+	  OS_error();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim2, &sClockSourceConfig) != HAL_OK)
+  {
+	  OS_error();
+  }
+  if (HAL_TIM_PWM_Init(&htim2) != HAL_OK)
+  {
+	  OS_error();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
+  {
+	  OS_error();
+  }
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.Pulse = 0;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
+  {
+	  OS_error();
+  }
+  HAL_TIM_MspPostInit(&htim2);
 }
 
 
