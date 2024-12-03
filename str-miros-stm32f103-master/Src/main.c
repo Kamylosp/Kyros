@@ -39,7 +39,7 @@ TIM_HandleTypeDef htim2;
 
 struct VL53L0X distanceSensor;
 
-static struct VL53L0X myTOFsensor = {.io_2v8 = true, .address = 0b0101001, .io_timeout = 500, .did_timeout = false};
+static struct VL53L0X myTOFsensor = {.io_2v8 = false, .address = 0x52, .io_timeout = 500, .did_timeout = false};
 
 void read_distance_sensor();
 void pwm_actuator();
@@ -57,7 +57,7 @@ int main() {
     MX_TIM2_Init();
 
     semaphore_init(&mutex, 1, 1);
-    PID_setup(&pidController, -0.0001, -0.00001, -0.00001, 0.02, 0.3, -0.3);
+    PID_setup(&pidController, -0.0001, -0.00001, -0.00001, 200, 0.3, -0.3);
     distance_sensor_init();
 
     parameters_distance_sensor_task.deadline_absolute = 5;
@@ -88,21 +88,25 @@ int main() {
     OS_run();
 }
 
+
+int currentDistance;
+
 void read_distance_sensor(){
     while(1){
     	cont_sensor++;
-        //float currentDistance = VL53L0X_readRangeSingleMillimeters(&distanceSensor);
-        float currentDistance = 50;
+        currentDistance = (int) VL53L0X_readRangeContinuousMillimeters(&distanceSensor);
+        //float currentDistance = 50;
         PID_setInput(&pidController, currentDistance, &mutex);
         OS_wait_next_period();
     }
 }
 
+uint32_t pwmVal = 0;
 void pwm_actuator(){
     while(1){
     	cont_pwm++;
-        float pwmVal = PID_action(&pidController, &mutex);
-        TIM2->CCR1 = (int) (pwmVal*TIM2->ARR);
+        pwmVal = (int) (1000*PID_action(&pidController, &mutex)) + 610;
+        TIM2->CCR1 = (int) ((pwmVal/1000)*TIM2->ARR);
         OS_wait_next_period();
     }
 }
@@ -110,10 +114,10 @@ void pwm_actuator(){
 void aperiodic_task(){
     sem_down(&mutex);
 
-    if (pidController.setpoint == 0.02)
-        pidController.setpoint = 0.04;
+    if (pidController.setpoint == 400)
+        pidController.setpoint = 400;
     else 
-        pidController.setpoint = 0.02;
+        pidController.setpoint = 200;
     
     sem_up(&mutex);
 
@@ -122,7 +126,7 @@ void aperiodic_task(){
 
 void distance_sensor_init() {
 
-    VL53L0X_init(&myTOFsensor);
+    while(!VL53L0X_init(&myTOFsensor));
 	VL53L0X_setMeasurementTimingBudget(&myTOFsensor, 20e3); // 20 ms
 	VL53L0X_startContinuous(&myTOFsensor, 0);
     
