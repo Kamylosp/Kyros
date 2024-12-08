@@ -16,6 +16,8 @@
 
 [Funções auxiliares](#funções-auxiliares)
 
+[Escalonabilidade das tarefas do sistema](#escalonabilidade-das-tarefas-do-sistema)
+
 ## Alunos
 
 Elison Maiko Oliveira de Souza (22102900)
@@ -45,9 +47,9 @@ O Nom-Preemptive Protocol (NPP) aumenta a prioridade de uma tarefa quando ela en
 
 ## Estrutura das Tarefas Periódicas
 As tarefas periódicas correspondem a:
-  1.   Ler o sensor de distância
-  2.   Calcular o output do controlador PID
-  3.   Atuar no sensor que controla a altura da bolinha por meio do PWM
+  1.   Ler o sensor de distância (*read_distance_sensor*)
+  2.   Calcular o output do controlador PID (*calc_PID*)
+  3.   Atuar no sensor que controla a altura da bolinha por meio do PWM (*pwm_actuator*)
    
 Todas essas tarefas possuem um perído de 5ms.    
 
@@ -60,8 +62,26 @@ A tarefa que atua com o pwm é relativamente simples, onde novamente há a prote
 
 ## Tarefas Aperiódicas
 
-O sistema possui uma tarefa aperiódica, que corresponde à eventual leitura do botão. Ao pressioná-lo ocorre uma mudança do setpoint do controlador, intercalando-se entre os valores de 200 e 400 mm. Também é protegido a mudança do setpoint por um semáforo, o *mutex_setpoint*. 
+O sistema possui uma tarefa aperiódica, que corresponde à eventual leitura do botão (*aperiodic_task*). Ao pressioná-lo ocorre uma mudança do setpoint do controlador, intercalando-se entre os valores de 200 e 400 mm. Também é protegido a mudança do setpoint por um semáforo, o *mutex_setpoint*. 
 
 ## Funções auxiliares
 
 Há a presença de algumas funções auxiliares no código, tais como a *distance_sensor_init*, responsável por inicializar o sensor de distância e a *MX_TIM2_Init*, responsável pelas inicializações do PWM
+
+## Escalonabilidade das tarefas do sistema
+
+Para realizar o teste de escalonabilidade, foi considerado o custo das tarefas com uma margem de segurança para garantir que o sistema fosse escalonável mesmo em uma situação mais crítica. A tabela a seguir exibe os custos e períodos de cada tarefa periódica, em milisegundos.
+
+| Tarefa    | $C_{i}$ | $D_{i}$ | $T_{i}$ |
+|--------|-------  |-------  |-----    |
+| pwm_actuator      | 5       | 50      | 50      | 
+| read_distance_sensor      | 10      | 50      | 50      |
+| calc_PID       | 25      | 50      | 50      |
+
+Pode-se aplicar o teste de escalonabilidade por RM: $\sum\frac{Ci}{Ti} < n(2^{1/n}-1)$.
+Assim, $\frac{5}{50} +\frac{10}{50} +\frac{25}{50} + < 3(2^{1/3} - 1)$ $\Rightarrow 0.8 < 0.779$. Como a igualdade não é verdadeira, não se pode afirmar que o sistema é escalonável por RM com esse teste. 
+Partindo para o teste hiperbólico, tem-se:  $\prod (Ui +1) < 2$
+Assim, $(\frac{5}{50} + 1)(\frac{10}{50} + 1)(\frac{25}{50} + 1) < 2$ $\Rightarrow 1.98 < 2$. Logo, pode-se afirmar que o sistema é escalonável por RM, segundo o teste hiperbólico.
+
+Além disso, como a utilização das tarefas não é máxima ($U_{sistema} = 0.8$) e a tarefa aperiódica possui um custo de aproximadamente 10 ms, considerando margens de segurança, tanto as tarefas periódicas quanto as aperiódicas são devidamente escalonáveis no sistema.
+
