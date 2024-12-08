@@ -1,5 +1,7 @@
 ### Controle da altura de uma bolinha com um controlador PID em um RTOS utilizando STM32F103
 
+[Alunos](#alunos)
+
 [Objetivos](#objetivos)
 
 [Rate Monotonic (RM)](#rate-monotonic-rm)
@@ -13,6 +15,14 @@
 [Tarefas Aperiódicas](#tarefas-aperiódicas)
 
 [Funções auxiliares](#funções-auxiliares)
+
+## Alunos
+
+Elison Maiko Oliveira de Souza (22102900)
+
+Kamylo Serafim Porto (22101934)
+
+Lucas Gabriel Bernardino (22101935)
 
 ## Objetivos
 
