@@ -56,7 +56,6 @@ uint8_t number_aperiodic_tasks = 0;
 
 #define LOG2(x) (32U - __builtin_clz(x))
 
-
 OSThread idleThread;
 void main_idleThread() {
     while (1) {
@@ -78,7 +77,6 @@ void OS_init(void *stkSto, uint32_t stkSize) {
 }
 
 // Calculate the next task index (the position in OS_Thread array of next task) 
-
 void OS_wait_next_period(){
     __disable_irq();
     
@@ -95,7 +93,6 @@ void OS_finished_aperiodic_task(void){
 
     if (number_aperiodic_tasks == 1){
     	OS_aperiodic_tasks[0] = (OSThread *) 0;
-
 
     } else {
 		// Update the queue array of aperiodic tasks

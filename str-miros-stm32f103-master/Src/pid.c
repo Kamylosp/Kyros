@@ -4,6 +4,8 @@
 
 Q_DEFINE_THIS_FILE
 
+float PERIOD_TOF_SENSOR = 0.05;     // em segundos
+
 void PID_setup(PIDController* controller, float kp, float ki, float kd, float setpoint, float max, float min) {
     Q_ASSERT(controller);
 
@@ -18,43 +20,27 @@ void PID_setup(PIDController* controller, float kp, float ki, float kd, float se
     controller->min = min;
 }
 
-/*
-float PID_action(PIDController* controller, semaphore_t* mutex) {
+float PID_action(PIDController* controller, float error) {
     Q_ASSERT(controller);
-
-    sem_down(mutex);
-    float error = controller->setpoint - controller->input;
-    sem_up(mutex);
 
     controller->integral_sum = controller->integral_sum + (error * PERIOD_TOF_SENSOR);
     float derivative_term = (error - controller->error_prev) / PERIOD_TOF_SENSOR;
 
     controller->error_prev = error;
 
-
-    comp_p = (controller->Kp * error);
-    comp_d = (controller->Kd * derivative_term);
-    comp_i = (controller->Ki * controller->integral_sum);
-
-    float output = comp_p + comp_d + comp_i;
-
-    out = output;
+    float comp_p = (controller->Kp * error);
+    float comp_i = (controller->Ki * controller->integral_sum);
+    float comp_d = (controller->Kd * derivative_term);
+    
+    float output = comp_p + comp_i + comp_d;
 
     if (output > controller->max) {
-    output = controller->max;
+      output = controller->max;
     }
     if (output < controller->min) {
-    output = controller->min;
+      output = controller->min;
     }
 
     return output;
 }
 
-void PID_setInput(PIDController* controller, float input, semaphore_t* mutex) {
-    Q_ASSERT(controller);
-    sem_down(mutex);
-    controller->input = input;
-    sem_up(mutex);
-}
-
-*/

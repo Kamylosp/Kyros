@@ -1,6 +1,16 @@
 #include "config_gpio.h"
 #include "stm32f1xx_hal.h"
 
+/* Conections:
+
+button: B0
+
+PWM : A0
+
+Sensor de distância:
+    SCL: B6
+    SDA: B7 */
+
 void MX_GPIO_Init(void)
 {
 

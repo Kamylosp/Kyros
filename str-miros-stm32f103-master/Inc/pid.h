@@ -16,7 +16,6 @@ typedef struct {
 } PIDController;
 
 void PID_setup(PIDController* controller, float kp, float ki, float kd, float setpoint, float max, float min);
-float PID_action(PIDController* controller, semaphore_t* mutex);
-void PID_setInput(PIDController* controller, float input, semaphore_t* mutex);
+float PID_action(PIDController* controller, float error);
 
 #endif /* PID_H */

@@ -6,29 +6,9 @@
 #include "config_gpio.h"
 #include "stm32f1xx_hal.h"
 
-/*
-Conections:
-
-button: B0
-
-PWM : A0
-
-Sensor de distância:
-    SCL: B6
-    SDA: B7
-
-*/
-
-float comp_p;
-float comp_d;
-float comp_i;
-
-uint8_t onde_estou = 0;
-
-uint32_t cont_pwm = 0;
-uint32_t cont_sensor = 0;
-const float PERIOD_TOF_SENSOR = 0.05;     // em segundos
-float pwmVal;
+float pwmVal = 0;
+uint32_t previousTick = 0;
+int currentDistance;
 
 struct_tasks struct_distance_sensor_task;
 struct_tasks struct_calc_pid;
@@ -59,7 +39,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin);
 void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
 
 int main() {
-	uint32_t stack_idleThread[40];
+    uint32_t stack_idleThread[40];
 
     OS_init(stack_idleThread, sizeof(stack_idleThread));
 
@@ -111,12 +91,8 @@ int main() {
     OS_run();
 }
 
-
-int currentDistance;
-
 void read_distance_sensor(){
     while(1){
-    	cont_sensor++;
         currentDistance = (int) VL53L0X_readRangeContinuousMillimeters(&distanceSensor);
 
         sem_down(&mutex_current_distance);
@@ -138,37 +114,18 @@ void calc_PID(){
         sem_up(&mutex_setpoint);
         sem_up(&mutex_current_distance);
 
-
-        pidController.integral_sum = pidController.integral_sum + (error * PERIOD_TOF_SENSOR);
-        float derivative_term = (error - pidController.error_prev) / PERIOD_TOF_SENSOR;
-
-        pidController.error_prev = error;
-
-        comp_p = (pidController.Kp * error);
-        comp_d = (pidController.Kd * derivative_term);
-        comp_i = (pidController.Ki * pidController.integral_sum);
-
-        float pid_pwm_value = comp_p + comp_d + comp_i;
-
-        if (pid_pwm_value > pidController.max) {
-        pid_pwm_value = pidController.max;
-        }
-        if (pid_pwm_value < pidController.min) {
-        pid_pwm_value = pidController.min;
-        }
+        float pid_pwm_value = PID_action(&pidController, error);
 
         sem_down(&mutex_pwm_value);
-    	pwmVal = pid_pwm_value + 0.61;
+        pwmVal = pid_pwm_value + 0.61;
         sem_up(&mutex_pwm_value);
 
         OS_wait_next_period();
     }
 }
 
-float pwmVal = 0;
 void pwm_actuator(){
     while(1){
-    	cont_pwm++;
 
         sem_down(&mutex_pwm_value);
         TIM2->CCR1 = (int) (pwmVal*TIM2->ARR);
@@ -182,10 +139,10 @@ void aperiodic_task(){
 
     sem_down(&mutex_setpoint);
 
-    if (pidController.setpoint == 600)
+    if (pidController.setpoint == 400)
         pidController.setpoint = 200;
     else
-        pidController.setpoint = 600;
+        pidController.setpoint = 400;
     
     sem_up(&mutex_setpoint);
 
@@ -195,8 +152,8 @@ void aperiodic_task(){
 void distance_sensor_init() {
 
     while(!VL53L0X_init(&myTOFsensor));
-	VL53L0X_setMeasurementTimingBudget(&myTOFsensor, 20e3); // 20 ms
-	VL53L0X_startContinuous(&myTOFsensor, 0);
+    VL53L0X_setMeasurementTimingBudget(&myTOFsensor, 20e3); // 20 ms
+    VL53L0X_startContinuous(&myTOFsensor, 0);
     
     return;
 }
@@ -244,7 +201,6 @@ void MX_TIM2_Init(void){
 }
 
 
-uint32_t previousTick = 0;
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 
 	uint32_t currentTick = HAL_GetTick();
