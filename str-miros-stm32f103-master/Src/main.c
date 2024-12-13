@@ -45,12 +45,12 @@ int main() {
 
     MX_GPIO_Init();
     MX_TIM2_Init();
+    distance_sensor_init();
 
     semaphore_init(&mutex_setpoint, 1, 1);
     semaphore_init(&mutex_current_distance, 1, 1);
     semaphore_init(&mutex_pwm_value, 1, 1);
     PID_setup(&pidController, -0.0001, -0.00001, -0.00001, 200, 0.3, -0.3);
-    distance_sensor_init();
 
     parameters_distance_sensor_task.deadline_absolute = 5;
     parameters_distance_sensor_task.deadline_dinamic = 5;

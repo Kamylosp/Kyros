@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 ### Controle da altura de uma bolinha com um controlador PID em um RTOS utilizando STM32F103
 
 [Alunos](#alunos)
@@ -85,3 +86,7 @@ Assim, $(\frac{5}{50} + 1)(\frac{10}{50} + 1)(\frac{25}{50} + 1) < 2$ $\Rightarr
 
 Além disso, como a utilização das tarefas não é máxima ($U_{sistema} = 0.8$) e a tarefa aperiódica possui um custo de aproximadamente 10 ms, considerando margens de segurança, tanto as tarefas periódicas quanto as aperiódicas são devidamente escalonáveis no sistema.
 
+=======
+# Kyros
+An (un)optimized Miros version
+>>>>>>> main

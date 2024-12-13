@@ -1,0 +1,15 @@
+../Core/Src/miros.c:62:6:main_idleThread	1
+../Core/Src/miros.c:68:6:OS_init	1
+../Core/Src/miros.c:80:6:OS_wait_next_period	1
+../Core/Src/miros.c:91:6:OS_finished_aperiodic_task	2
+../Core/Src/miros.c:110:6:OS_sched	5
+../Core/Src/miros.c:147:6:OS_run	1
+../Core/Src/miros.c:159:6:OS_tick	7
+../Core/Src/miros.c:195:6:OS_delay	2
+../Core/Src/miros.c:211:6:semaphore_init	2
+../Core/Src/miros.c:220:6:sem_up	5
+../Core/Src/miros.c:254:6:sem_down	6
+../Core/Src/miros.c:293:6:error_indicator_blink	1
+../Core/Src/miros.c:300:6:OSAperiodic_task_start	3
+../Core/Src/miros.c:346:6:OSPeriodic_task_start	13
+../Core/Src/miros.c:440:6:PendSV_Handler	1
